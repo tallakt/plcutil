@@ -92,6 +92,7 @@ module PlcUtil
 			throw 'Please use mode :ask/:update/:replace' unless [:ask, :replace, :update].include? mode
 			io.puts ':mode=' + mode.to_s
 			@sections.each_value do |section|
+        next if @sections[:row].empty?
 				io.puts sections[:colnames].join ';'
 				sections[:rows].each do |row|
           io.puts row.to_csv
