@@ -12,7 +12,7 @@ module PlcUtil
 				OffMsg LoLoAlarmInhibitor RocAlarmInhibitor ItemName
 			)
 
-		def initialize(filename = nil)
+		def initialize(filename = nil, options = {})
 			# Lookup table to check wether a certain column must write its values inside apostrophes
 			@lookup_apostrophe_fields = ApostropheReqiredColumns.inject({}) {|h, v| h[v] = true; h}
 
@@ -20,21 +20,29 @@ module PlcUtil
 			@sections = YAML.load_file File.join(File.dirname(__FILE__), "standard_sections.yaml")
       each_section {|sec| define_data_class @sections[sec][:colnames]}
 
+      @options = options
+
 			if filename
 				File.open filename, 'r' do |f|
 					read_csv f
 				end
 			end
     end
-		
-		
+
     def each_section
 			@sections.each_key {|k| yield k}
 		end
 	
 
-		def find_tag(section, tag) 
-			@section[section][:rows].find {|row| row.tag == tag}
+		def find_tag(tag, section = nil)
+      if section
+        @sections[section][:rows].find {|row| row.tag == tag}
+      else
+        tmp = @sections.collect do |sec|
+          sec[:rows].find {|row| row.tag == tag }
+        end.flatten
+        tmp && tmp.first
+      end
 		end
 
 
@@ -83,7 +91,7 @@ module PlcUtil
 					else
 						# new tag
             cols = l.gsub(/"/, '').split /;/
-						current[:rows] << new_data_instance(current[:name][1..-1], cols[0], cols[1, -1])
+						new_data_instance(current[:name][1..-1], cols[0], cols[1, -1])
 				end
 			end
 		end
@@ -92,9 +100,9 @@ module PlcUtil
 			throw 'Please use mode :ask/:update/:replace' unless [:ask, :replace, :update].include? mode
 			io.puts ':mode=' + mode.to_s
 			@sections.each_value do |section|
-        next if @sections[:row].empty?
-				io.puts sections[:colnames].join ';'
-				sections[:rows].each do |row|
+        next if section[:rows].empty?
+				io.puts section[:colnames].join ';'
+				section[:rows].each do |row|
           io.puts row.to_csv
 				end
 			end
@@ -104,7 +112,21 @@ module PlcUtil
 
 
     def apostrophe_req?(colname)
-      @lookup_apostrophe_fields[colname]
+      @lookup_apostrophe_fields[colname] || colname.match(/^:/)
+    end
+
+    def to_csv_line(colnames)
+      '[%s].join ";"' % colnames.map do |c|
+        cc = c.match(/^:/) ? 'tag' : camel_conv(c)
+        if apostrophe_req? c
+          # When nil, dont display the "" chars, since this will overwrite with an empty string
+          # The check is performed at runtime in the generated class
+          # The result should look like: (tag ? '"%s"' : '%s') % tag
+          %Q!\n  (#{cc} ? '"%s"' : '%s') % #{cc}!
+        else
+          %Q!\n  #{cc}.to_s!
+        end
+      end.join(',')
     end
 
     def define_data_class(colnames)
@@ -126,7 +148,7 @@ module PlcUtil
           end
 
           def to_csv
-            '#{values_format}' % [@tag, #{attr_list}]
+            #{to_csv_line colnames}
           end
 
           def intouch_fields
@@ -142,6 +164,9 @@ module PlcUtil
         def new_#{camel_conv klass}(tag, values = nil)
           result = #{klass}.new tag, values
           @sections['#{colnames[0]}'][:rows] << result
+          if result.respond_to? :access_name
+            result.access_name = @options[:access_name]
+          end
           yield result if block_given?
           result
         end

@@ -31,7 +31,11 @@ module PlcUtil
 		def each_tag
 			@datablocks.each do |var|
 				var.type.explode(Address.new(0,0), var.name).each do |item|
-					yield item[:name], complete_address(var.name, item[:addr].to_s), item[:comment], item[:type].downcase.to_sym
+					yield item[:name], 
+            complete_address(var.name, item[:addr].to_s), 
+            item[:comment], 
+            item[:struct_comment], 
+            item[:type].downcase.to_sym
 				end
 			end
 		end
@@ -70,34 +74,35 @@ module PlcUtil
 			in_array_decl = false
 			tagname = start = stop = type = comment = nil
 			file.each_line do |l|
+        l.chomp!
 				if in_array_decl
-					if l.match /^\s+"?([A-Za-z0-9_]+)"?\s?;/
+					if l.match '^\s+\"?([A-Za-z0-9_]+)"?\s?;'
 						type = $1
-						stack.last.add Variable.new(tagname, ArrayType.new(@types[type], start..stop), defined_type(stack.first), comment)
+						stack.last.add Variable.new(tagname, ArrayType.new(@types[type], start..stop), comment)
 					end
 					in_array_decl = false
 				else
 					in_array_decl = false
 					case l
 						when /^TYPE "([^"]+)/ 
-							stack = [StructType.new $1]
+							stack = [StructType.new $1, :datatype]
 							add_type stack.last
 						when /^DATA_BLOCK "([^"]+)/
-							stack = [StructType.new $1]
-							@datablocks << Variable.new($1, stack.last, defined_type(stack.first))
+							stack = [StructType.new $1, :datablock]
+							@datablocks << Variable.new($1, stack.last)
 						when /^\s*(\S+) : STRUCT /
-							s = StructType.new 'STRUCT'
-							stack.last.add Variable.new $1, s, defined_type(stack.first)
+							s = StructType.new 'STRUCT', :anonymous
+							stack.last.add Variable.new $1, s
 							stack << stack.last.children.last.type
 						when /^\s+END_STRUCT/
 							stack.pop
 						when /^\s+([A-Za-z0-9_]+) : "?([A-Za-z0-9_]+)"?\s*(:=\s*[0-9.e+-]+)?;(\s*\/\/(.*))?/
 							# New variable in struct or data block
 							tagname, type_name, comment = $1, $2, $5
-							stack.last.add Variable.new(tagname, lookup_type(type_name), defined_type(stack.first), comment)
+							stack.last.add Variable.new(tagname, lookup_type(type_name), comment)
 						when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF "?([A-Za-z0-9_]+)"?\s?;(\s*\/\/(.*))?/
 							tagname, start, stop, type, comment = $1, $2, $3, $4, $6
-							stack.last.add Variable.new(tagname, ArrayType.new(lookup_type(type), start..stop), defined_type(stack.first), comment)
+							stack.last.add Variable.new(tagname, ArrayType.new(lookup_type(type), start..stop), comment)
 						when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF(\s?\/\/(.*))?$/
 							tagname, start, stop, comment = $1, $2, $3, $4
 							in_array_decl = true
@@ -118,8 +123,9 @@ module PlcUtil
 				@size, @name = size, name
 			end
 			
-			def explode(start_addr, name, comment = nil)
-				[:addr => start_addr.first_even_bit, :name => name, :comment => comment, :type => @name]
+			def explode(start_addr, name, comment, struct_comment)
+				[:addr => start_addr.first_even_bit, :name => name, 
+          :struct_comment => struct_comment, :comment => comment, :type => @name]
 			end
 			
 			def end_address(start_address)
@@ -135,8 +141,9 @@ module PlcUtil
 				@name = 'BOOL'
 			end
 			
-			def explode(start_addr, name, comment = nil)
-				[:addr => start_addr, :name => name, :comment => comment, :type => @name]
+			def explode(start_addr, name, comment, struct_comment)
+				[:addr => start_addr, :name => name, 
+          :struct_comment => struct_comment, :comment => comment, :type => @name]
 			end
 			
 			def end_address(start_address)
@@ -145,11 +152,12 @@ module PlcUtil
 		end
 		
 		class StructType
-			attr_accessor :name, :children
+			attr_accessor :name, :children, :type
 			
-			def initialize(name = 'STRUCT')
+			def initialize(name = 'STRUCT', type = :anonymous)
 				@name = name
 				@children = []
+        @type = type
 			end
 			
 			def add(child)
@@ -166,23 +174,17 @@ module PlcUtil
 				addr.first_bit!
 			end
 			
-			def explode(start_addr, name, comment = nil)
-				throw 'Illegal start address' unless start_addr.class == Address
+			def explode(start_addr, name, comment = nil, struct_comment = nil)
 				addr = start_addr.first_even_bit
 				exploded = []
 				@children.each do |child|
-					if child.in_dfb?
-						cc = comment
-					else
-						cc = child.comment
-					end
-					exploded += child.type.explode(addr, name + '.' + child.name, cc)
+					exploded += child.type.explode(addr, name + '.' + child.name, child.comment, 
+                                         type == :datablock ? child.comment : struct_comment)
 					addr = child.type.end_address addr
-								throw 'Illegal new address' unless addr.class == Address
-
 				end
 				exploded
 			end
+
 		end
 		
 		class ArrayType
@@ -206,14 +208,12 @@ module PlcUtil
 				addr
 			end
 
-			def explode(start_addr, name, comment = nil)
+			def explode(start_addr, name, comment, struct_comment)
 				exploded = []
-				cc = comment
 				addr = start_addr
 				range.to_a.each_with_index do |v, i|
-					exploded += type.explode(addr, name + '[' + v.to_s + ']', cc)
+					exploded += type.explode(addr, name + '[' + v.to_s + ']', comment, struct_comment)
 					addr = type.end_address(addr)
-					cc = nil
 				end
 				exploded
 			end
@@ -222,13 +222,8 @@ module PlcUtil
 		class Variable
 			attr_accessor :name, :type, :comment
 			
-			def initialize(name, type, in_dfb, comment = nil)
-				@name, @type, @comment, @in_dfb = name, type, comment, in_dfb
-				throw 'bogus comment' if comment.class == true.class
-			end
-			
-			def in_dfb?
-				@in_dfb
+			def initialize(name, type, comment = nil)
+				@name, @type, @comment= name, type, comment
 			end
 		end
 		
@@ -292,6 +287,4 @@ module PlcUtil
 			end
 		end
 	end
-
-
 end

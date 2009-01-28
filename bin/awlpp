@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'plcutil/siemens/awlprettyprintrunner'
+require 'plcutil/siemens/step7tointouchrunner'
+
+# try: awlpp --help
+PlcUtil::AwlPrettyPrintRunner.new ARGV
+

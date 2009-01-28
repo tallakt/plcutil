@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'plcutil/siemens/step7tointouchrunner'
+
+# try: s7tointouch --help
+PlcUtil::Step7ToIntouchRunner.new ARGV
+
