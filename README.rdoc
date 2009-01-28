@@ -1,6 +1,6 @@
 = plcutil
 
-* FIX (url)
+http://github.com/tallakt/plcutil
 
 == DESCRIPTION:
 
