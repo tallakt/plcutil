@@ -1,7 +1,6 @@
 #!/usr/bin/ruby
 
 require 'rubygems'
-require 'dbf'
 
 module PlcUtil
 
@@ -14,6 +13,8 @@ module PlcUtil
 			@symlist = {}
 			
 			if options[:symlist]
+        require 'dbf' or throw RuntimeException.new 'Please install gem dbf to read symlist file'
+
 				throw 'Specified symlist file not found' unless File.exists? options[:symlist]
 				table = DBF::Table.new(options[:symlist])
 				table.records.each do |rec|
