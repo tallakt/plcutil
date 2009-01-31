@@ -6,6 +6,8 @@ module PlcUtil
 
 	# Reads a Siemens Step 7 AWL file and creates single tags with addresses and comment
 	class AwlFile
+    attr_reader :symlist
+
 		def initialize(filename, options = {})
 			@types = {}
 			init_basic_types
@@ -15,7 +17,7 @@ module PlcUtil
 			if options[:symlist]
         require 'dbf' or throw RuntimeException.new 'Please install gem dbf to read symlist file'
 
-				throw 'Specified symlist file not found' unless File.exists? options[:symlist]
+				throw RuntimeException.new 'Specified symlist file not found' unless File.exists? options[:symlist]
 				table = DBF::Table.new(options[:symlist])
 				table.records.each do |rec|
 					@symlist[rec.attributes['_skz']] = rec.attributes['_opiec'] # or _ophist or _datatyp
@@ -31,7 +33,7 @@ module PlcUtil
 		
 		def each_tag
 			@datablocks.each do |var|
-				var.type.explode(Address.new(0,0), var.name).each do |item|
+				var.type.explode(Address.new(0), var.name).each do |item|
 					yield item[:name], 
             complete_address(var.name, item[:addr].to_s), 
             item[:comment], 
@@ -56,9 +58,22 @@ module PlcUtil
 		end
 		
 		def init_basic_types
-			[BoolType.new,  BasicType.new('INT', 2), BasicType.new('REAL', 4)].each do |basic|
-				add_type basic
-			end
+      types = {
+        'BOOL' => 1,
+        'BYTE' => 8,
+        'CHAR' => 8,
+        'DATE' => 2 * 8, 
+        'DINT' => 4 * 8,
+        'DWORD' => 4 * 8,
+        'INT' => 2 * 8,
+        'REAL' => 4 * 8,
+        'S5TIME' => 2 * 8,
+        'TIME' => 4 * 8,
+        'TIME_OF_DAY' => 4 * 8,
+        'WORD' => 2 * 8,
+        'DATE_AND_TIME' => 4 * 8 # ??? only used in VAR_TEMP
+      }
+      types.each {|name, size| add_type BasicType.new(name, size) }
 		end
 		
 		def add_type(type)
@@ -91,14 +106,17 @@ module PlcUtil
 						when /^DATA_BLOCK "([^"]+)/
 							stack = [StructType.new $1, :datablock]
 							@datablocks << Variable.new($1, stack.last)
+						when /^VAR_TEMP/
+							s = StructType.new 'VAR_TEMP', :anonymous
+              stack = [s]
 						when /^\s*(\S+) : STRUCT /
 							s = StructType.new 'STRUCT', :anonymous
 							stack.last.add Variable.new $1, s
 							stack << stack.last.children.last.type
-						when /^\s+END_STRUCT/
+						when /^\s+END_STRUCT/, /END_VAR/, /END_DATA_BLOCK/, /END_TYPE/
 							stack.pop
-						when /^\s+([A-Za-z0-9_]+) : "?([A-Za-z0-9_]+)"?\s*(:=\s*[0-9.e+-]+)?;(\s*\/\/(.*))?/
-							# New variable in struct or data block
+            # New variable in struct or data block
+						when /^\s+([A-Za-z0-9_ ]+) : "?([A-Za-z0-9_ ]+?)"?\s*(:=\s*[^;]+)?;(\s*\/\/(.*))?/
 							tagname, type_name, comment = $1, $2, $5
 							stack.last.add Variable.new(tagname, lookup_type(type_name), comment)
 						when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF "?([A-Za-z0-9_]+)"?\s?;(\s*\/\/(.*))?/
@@ -118,39 +136,24 @@ module PlcUtil
 		
 		
 		class BasicType
-			attr_accessor :size, :name
+			attr_accessor :bit_size, :name
 			
-			def initialize(name, size)
-				@size, @name = size, name
+			def initialize(name, bit_size)
+				@bit_size, @name = bit_size, name
 			end
 			
 			def explode(start_addr, name, comment, struct_comment)
-				[:addr => start_addr.first_even_bit, :name => name, 
+        actual_start = start_addr.next_start bit_size
+				[:addr => actual_start, :name => name, 
           :struct_comment => struct_comment, :comment => comment, :type => @name]
 			end
 			
 			def end_address(start_address)
-				start_address.first_even_bit.skip!(size)
+				start_address.next_start(bit_size).skip! bit_size
 			end
 		end
 
 
-		class BoolType
-			attr_accessor :name
-			
-			def initialize
-				@name = 'BOOL'
-			end
-			
-			def explode(start_addr, name, comment, struct_comment)
-				[:addr => start_addr, :name => name, 
-          :struct_comment => struct_comment, :comment => comment, :type => @name]
-			end
-			
-			def end_address(start_address)
-				start_address.next_bit
-			end
-		end
 		
 		class StructType
 			attr_accessor :name, :children, :type
@@ -168,15 +171,15 @@ module PlcUtil
 			end
 				
 			def end_address(start_address) 
-				addr = start_address.first_even_bit
+				addr = start_address.next_start
 				@children.each do |child|
 					addr = child.type.end_address addr
 				end
-				addr.first_bit!
+        addr.next_start!
 			end
 			
 			def explode(start_addr, name, comment = nil, struct_comment = nil)
-				addr = start_addr.first_even_bit
+				addr = start_addr.next_start
 				exploded = []
 				@children.each do |child|
 					exploded += child.type.explode(addr, name + '.' + child.name, child.comment, 
@@ -185,7 +188,6 @@ module PlcUtil
 				end
 				exploded
 			end
-
 		end
 		
 		class ArrayType
@@ -202,7 +204,7 @@ module PlcUtil
 			end
 
 			def end_address(start_address) 
-				addr = start_address
+				addr = start_address.next_start
 				range.each do
 					addr = type.end_address addr
 				end
@@ -211,7 +213,7 @@ module PlcUtil
 
 			def explode(start_addr, name, comment, struct_comment)
 				exploded = []
-				addr = start_addr
+				addr = start_addr.next_start
 				range.to_a.each_with_index do |v, i|
 					exploded += type.explode(addr, name + '[' + v.to_s + ']', comment, struct_comment)
 					addr = type.end_address(addr)
@@ -222,70 +224,46 @@ module PlcUtil
 		
 		class Variable
 			attr_accessor :name, :type, :comment
-			
+
 			def initialize(name, type, comment = nil)
 				@name, @type, @comment= name, type, comment
 			end
 		end
 		
 		class Address
-			attr_accessor :byte, :bit
+			attr_accessor :bit_addr
 			
-			def initialize(byte, bit)
-				@byte, @bit = byte, bit
+			def initialize(bit_addr)
+				@bit_addr = bit_addr
 			end
 			
 			def to_s
-				@byte.to_s + '.' + @bit.to_s
-			end
-			
-			def first_bit!
-				@byte += 1 if @bit > 0
-				@bit = 0
-				self
+				byte.to_s + '.' + bit.to_s
 			end
 
-			def first_bit
-				self.clone.first_bit!
-			end
+      def bit
+        @bit_addr % 8
+      end
 
-			def first_even_bit!
-				first_bit!
-				skip! if @byte % 2 > 0
-				self
-			end
+      def byte
+        @bit_addr / 8
+      end
 
-			def first_even_bit
-				self.clone.first_even_bit!
-			end
-			
-			def next
-				self.clone.next!
-			end
-			
-			def next_bit!
-				@bit += 1
-				if @bit == 8
-					@bit = 0
-					@byte += 1
-				end
-				self
-			end
-			
-			def next_bit
-				self.clone.next_bit!
-			end
-			
-			def skip!(bytes = 1)
-				(bytes * 8).times do 
-					next_bit!
-				end
-				self
-			end
-			
-			def skip(bytes = 1)
-				self.clone.skip bytes
-			end
+      def next_start!(bit_size = 2 * 8)
+        bs = [bit_size, 2 * 8].min  # bools use bits, chars/bytes one byte others two byte rounding of start address
+        rest = @bit_addr % bs
+        @bit_addr += (bs - rest) if rest > 0
+        self
+      end
+
+      def next_start(bit_size = 2 * 8)
+        self.clone.next_start! bit_size
+      end
+
+      def skip!(bit_count)
+        @bit_addr += bit_count
+        self
+      end
 		end
 	end
 end

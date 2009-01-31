@@ -13,7 +13,7 @@ VERSION : 0.1
    dint_at_12_0 : DINT ;	
    real_at_16_0 : REAL ;	
    s5time_at_20 : S5TIME ;	
-   time_at_22 : TIME ;	
+   time_at_22_0 : TIME ;	
    date_at_26_0 : DATE ;	
    time_of_day_at_28_0 : TIME_OF_DAY ;	
    char_at_32_0 : CHAR  := 't';	
@@ -43,6 +43,10 @@ VERSION : 0.1
     char_at_102_0 : CHAR ;	
    END_STRUCT ;	
    word_at_104_0 : WORD ;	
+   char_at_106_0 : CHAR ;	
+   bool_at_107_0 : BOOL ;	
+   char_at_108_0 : CHAR ;	
+   char_array_at_110_0 : ARRAY  [0 .. 1 ] OF CHAR ;	
   END_STRUCT ;	
 BEGIN
    struct_at_0_0.int_at_0_0 := 0; 
@@ -55,7 +59,7 @@ BEGIN
    struct_at_0_0.dint_at_12_0 := L#0; 
    struct_at_0_0.real_at_16_0 := 0.000000e+000; 
    struct_at_0_0.s5time_at_20 := S5T#0MS; 
-   struct_at_0_0.time_at_22 := T#0MS; 
+   struct_at_0_0.time_at_22_0 := T#0MS; 
    struct_at_0_0.date_at_26_0 := D#1990-1-1; 
    struct_at_0_0.time_of_day_at_28_0 := TOD#0:0:0.0; 
    struct_at_0_0.char_at_32_0 := 't'; 
@@ -71,7 +75,7 @@ BEGIN
    struct_at_36_0.dint_at_12_0 := L#0; 
    struct_at_36_0.real_at_16_0 := 0.000000e+000; 
    struct_at_36_0.s5time_at_20 := S5T#0MS; 
-   struct_at_36_0.time_at_22 := T#0MS; 
+   struct_at_36_0.time_at_22_0 := T#0MS; 
    struct_at_36_0.date_at_26_0 := D#1990-1-1; 
    struct_at_36_0.time_of_day_at_28_0 := TOD#0:0:0.0; 
    struct_at_36_0.char_at_32_0 := 't'; 
@@ -106,6 +110,11 @@ BEGIN
    anonomous_struct_at_84_0.char_array_at_92_0[9] := ' '; 
    anonomous_struct_at_84_0.char_at_102_0 := ' '; 
    word_at_104_0 := W#16#0; 
+   char_at_106_0 := ' '; 
+   bool_at_107_0 := FALSE; 
+   char_at_108_0 := ' '; 
+   char_array_at_110_0[0] := ' '; 
+   char_array_at_110_0[1] := ' '; 
 END_DATA_BLOCK
 
 ORGANIZATION_BLOCK "Cycle Execution"
