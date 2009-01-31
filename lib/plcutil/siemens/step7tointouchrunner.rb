@@ -78,14 +78,14 @@ module PlcUtil
             io.comment = cc
           end
         else
-          throw RuntimeException.new 'Unsupported type found: ' + type.to_s
+          throw RuntimeError.new 'Unsupported type found: ' + type.to_s
       end
      end
 
 
     # This function may be overridden in filter ruby file
     def filter_handle_awl_files
-      @awlfile.each do |awl|
+      @awllist.each do |awl|
         awl.each_tag do |name, addr, comment, struct_comment, type|
           filter_handle_tag name, addr, comment, struct_comment, type, @intouchfile
         end

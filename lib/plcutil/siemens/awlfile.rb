@@ -15,9 +15,9 @@ module PlcUtil
 			@symlist = {}
 			
 			if options[:symlist]
-        require 'dbf' or throw RuntimeException.new 'Please install gem dbf to read symlist file'
+        require 'dbf' or throw RuntimeError.new 'Please install gem dbf to read symlist file'
 
-				throw RuntimeException.new 'Specified symlist file not found' unless File.exists? options[:symlist]
+				throw RuntimeError.new 'Specified symlist file not found' unless File.exists? options[:symlist]
 				table = DBF::Table.new(options[:symlist])
 				table.records.each do |rec|
 					@symlist[rec.attributes['_skz']] = rec.attributes['_opiec'] # or _ophist or _datatyp
