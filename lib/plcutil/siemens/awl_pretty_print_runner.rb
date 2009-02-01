@@ -12,6 +12,8 @@ module PlcUtil
 			@commentformat = '# %s / %s'
 			@output = nil
 			@symlistfile = nil
+      @no_block = false
+
 			option_parser.parse! args
 			if args.size != 1
 				show_help
@@ -28,12 +30,19 @@ module PlcUtil
 			end
 		end
 		
+    def fix_name(name)
+      if @no_block
+        name.sub /^[^\.]*\./, ''
+      else
+        name
+      end
+    end
 
 		def print_to_file(f)
-			@awl.each_tag do |name, addr, comment, struct_comment, type|
+			@awl.each_tag do |name, data_block_name, addr, comment, struct_comment, type|
 				f.puts @format % [
           addr, 
-          name, 
+          fix_name(name), 
           type.to_s, 
           [comment, struct_comment].compact! ? '' : (@commentformat % [comment, struct_comment])
         ]
@@ -47,7 +56,10 @@ module PlcUtil
 					format = '%s;%s;%s;%s' 
 					@commentformat = '%s'
 				end
-				opts.on("-s", "--symlist FILE", String, "Specify SYMLIST.DBF file from S7 project ") do |symlistfile|
+				opts.on("-n", "--no-block", String, "Dont use the datablock as part of the tag", "name") do
+					@no_block = true
+				end
+        opts.on("-s", "--symlist FILE", String, "Specify SYMLIST.DBF file from S7 project ") do |symlistfile|
 					@awloptions[:symlist] = symlistfile
 				end
 				opts.on("-b", "--block NAME=ADDR", String, "Define address of datablock without", "reading symlist") do |blockdef|

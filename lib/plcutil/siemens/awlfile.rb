@@ -33,9 +33,10 @@ module PlcUtil
 		
 		def each_tag
 			@datablocks.each do |var|
-				var.type.explode(Address.new(0), var.name).each do |item|
+				var.type.explode(Address.new(0, data_block_address(var.name)), var.name).each do |item|
 					yield item[:name], 
-            complete_address(var.name, item[:addr].to_s), 
+            var.name,
+            item[:addr],
             item[:comment], 
             item[:struct_comment], 
             item[:type].downcase.to_sym
@@ -51,10 +52,6 @@ module PlcUtil
 			else
 				nil
 			end
-		end
-		
-		def complete_address(data_block_name, address)
-			[data_block_address(data_block_name), address].select {|s| s}.join ','
 		end
 		
 		def init_basic_types
@@ -81,7 +78,7 @@ module PlcUtil
 		end
 
 		def lookup_type(type)
-			throw "Could not find type '#{type}'" unless @types.key? type
+			throw RuntimeException.new "Could not find type '#{type}'" unless @types.key? type
 			@types[type]
 		end
 		
@@ -165,8 +162,8 @@ module PlcUtil
 			end
 			
 			def add(child)
-				throw 'Added nil child' unless child
-				throw 'Added nil child type' unless child.type
+				throw RuntimeException.new 'Added nil child' unless child
+				throw RuntimeException.new 'Added nil child type' unless child.type
 				@children << child
 			end
 				
@@ -194,8 +191,8 @@ module PlcUtil
 			attr_accessor :range, :type
 			
 			def initialize(type, range)
-				throw 'Added nil array type' unless type
-				throw 'Added nil array range' unless range
+				throw RuntimeException.new 'Added nil array type' unless type
+				throw RuntimeException.new 'Added nil array range' unless range
 				@range, @type = range, type
 			end
 			
@@ -231,14 +228,14 @@ module PlcUtil
 		end
 		
 		class Address
-			attr_accessor :bit_addr
+			attr_accessor :bit_addr, :data_block_addr
 			
-			def initialize(bit_addr)
-				@bit_addr = bit_addr
+			def initialize(bit_addr, data_block_addr = nil)
+				@bit_addr, @data_block_addr = bit_addr, data_block_addr
 			end
 			
 			def to_s
-				byte.to_s + '.' + bit.to_s
+				(data_block_addr || 'DB???') + ',' + byte.to_s + '.' + bit.to_s
 			end
 
       def bit

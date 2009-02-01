@@ -28,9 +28,10 @@ module PlcUtil
 			@awllist = command_line_arguments.map{|filename| AwlFile.new filename, @awloptions}
 
       # create a lookup table for used tags in the file to prevent duplicate ids
+      # TODO Move this into Intouchfile class
       @used_tags = {}
       @awllist.each do |awl|
-        awl.each_tag do |tag, addr, comment, type|
+        awl.each_tag do |tag, data_block_name, addr, comment, istruct_comment, type|
           @used_tags[siemens_to_ww_tagname_long tag] = true
         end
       end
@@ -47,6 +48,11 @@ module PlcUtil
 				print_to_file $stdout
 			end
 		end
+
+    def format_addr(addr, ww_tag, is_bool = false)
+      db = addr.data_block_addr || 'DB???'
+      db + ',' + ww_tag + addr.byte.to_s + (is_bool ? ('.' + addr.bit.to_s) : '')
+    end
 		
     # This function may be overriden in filter ruby file
     def filter_comment_format(comment, struct_comment)
@@ -58,23 +64,50 @@ module PlcUtil
     end
 
     # This function may be overridden in filter ruby file
-    def filter_handle_tag(name, addr, comment, struct_comment, type, intouch_file)
+    def filter_handle_tag(name, datablock_name, addr, comment, struct_comment, type, intouch_file)
       ww_name = siemens_to_ww_tagname name
       cc = filter_comment_format comment, struct_comment
       case type
         when :bool
           intouch_file.new_io_disc(ww_name) do |io|
-            io.item_name = addr
+            io.item_name = format_addr(addr, 'X', true)
             io.comment = cc
           end
         when :int
           intouch_file.new_io_int(ww_name) do |io|
-            io.item_name = addr
+            io.item_name = format_addr(addr, 'INT')
+            io.comment = cc
+          end
+        when :word
+          intouch_file.new_io_int(ww_name) do |io|
+            io.item_name = format_addr(addr, 'WORD')
             io.comment = cc
           end
         when :real
           intouch_file.new_io_real(ww_name) do |io|
-            io.item_name = addr
+            io.item_name = format_addr(addr, 'REAL')
+            io.comment = cc
+          end
+        when :byte
+          intouch_file.new_io_int(ww_name) do |io|
+            io.item_name = format_addr(addr, 'BYTE')
+            io.comment = cc
+          end
+        when :char
+          intouch_file.new_io_int(ww_name) do |io|
+            io.item_name = format_addr(addr, 'CHAR')
+            io.comment = cc
+          end
+        when :date, :s5time, :time_of_day
+          # skip
+        when :dint
+          intouch_file.new_io_int(ww_name) do |io|
+            io.item_name = format_addr(addr, 'DINT')
+            io.comment = cc
+          end
+        when :dword, :time
+          intouch_file.new_io_int(ww_name) do |io|
+            io.item_name = format_addr(addr, 'DWORD')
             io.comment = cc
           end
         else
@@ -86,8 +119,8 @@ module PlcUtil
     # This function may be overridden in filter ruby file
     def filter_handle_awl_files
       @awllist.each do |awl|
-        awl.each_tag do |name, addr, comment, struct_comment, type|
-          filter_handle_tag name, addr, comment, struct_comment, type, @intouchfile
+        awl.each_tag do |name, datablock_name, addr, comment, struct_comment, type|
+          filter_handle_tag name, datablock_name, addr, comment, struct_comment, type, @intouchfile
         end
       end
     end
@@ -96,7 +129,7 @@ module PlcUtil
 		def print_to_file(f)
       @intouchfile = IntouchFile.new nil, @intouchoptions
       filter_handle_awl_files
-      i.write_csv f
+      @intouchfile.write_csv f
 		end
 
     def siemens_to_ww_tagname(s)
@@ -108,7 +141,7 @@ module PlcUtil
         s.gsub /^[^\.]*./, ''
       else
         s
-      end.gsub(/\./, '_').gsub(/\[(\d+)\]/) { '_' + $1 }
+      end.gsub(/[\. ]/, '_').gsub(/\[(\d+)\]/) { '_' + $1 }
     end
 
     def new_unique_tag_helper(s, n)
@@ -140,7 +173,7 @@ module PlcUtil
 				opts.on("-n", "--no-block", String, "Dont use the datablock as part of the tag", "name") do
 					@no_block = true
 				end
-				opts.on("-b", "--block NAME=ADDR", String, "Define address of datablock without", "reading ymlist") do |blockdef|
+				opts.on("-b", "--block NAME=ADDR", String, "Define address of datablock without", "reading symlist") do |blockdef|
 					name, addr = blockdef.split(/=/)
 					@awloptions[:blocks] ||= {}
 					@awloptions[:blocks][name] = addr

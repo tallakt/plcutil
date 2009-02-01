@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'plcutil/wonderware/intouch_pretty_print_runner'
+
+# try: intouchpp --help
+PlcUtil::IntouchPrettyPrintRunner.new ARGV
+

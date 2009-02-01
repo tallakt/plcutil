@@ -2,18 +2,18 @@ require 'optparse'
 require 'plcutil/wonderware/intouchfile'
 
 module PlcUtil
-  class IntouchReader
-    def initialize
+  class IntouchPrettyPrintRunner
+    def initialize(arguments)
       # Standard options
       @mode = :io
 
       # Parse command line options
-			option_parser.parse! ARGV
-			if ARGV.size > 1
+			option_parser.parse! arguments
+			if arguments.size > 1
 				show_help
 				exit
 			end
-      filename, = ARGV
+      filename, = arguments
 
 
 
@@ -108,7 +108,4 @@ module PlcUtil
 		def show_help
 			puts option_parser
 		end  end
-
-  IntouchReader.new
 end
-
