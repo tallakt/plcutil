@@ -49,7 +49,7 @@ module PlcUtil
             (row.respond_to?(:alarm_state) && row.alarm_state && row.alarm_state.match(/None/)) ? ' ' : '*', 
             row.tag, 
             row.respond_to?(:item_name) ? row.item_name : '',
-            row.access_name, 
+            row.respond_to?(:access_name) ? row.access_name : '', 
             row.comment
           ]
         end
