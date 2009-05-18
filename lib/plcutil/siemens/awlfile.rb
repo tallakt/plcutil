@@ -15,9 +15,9 @@ module PlcUtil
 			@symlist = {}
 			
 			if options[:symlist]
-        require 'dbf' or throw RuntimeError.new 'Please install gem dbf to read symlist file'
+        require 'dbf' or raise 'Please install gem dbf to read symlist file'
 
-				throw RuntimeError.new 'Specified symlist file not found' unless File.exists? options[:symlist]
+				raise 'Specified symlist file not found' unless File.exists? options[:symlist]
 				table = DBF::Table.new(options[:symlist])
 				table.records.each do |rec|
 					@symlist[rec.attributes['_skz']] = rec.attributes['_opiec'] # or _ophist or _datatyp
@@ -68,7 +68,8 @@ module PlcUtil
         'TIME' => 4 * 8,
         'TIME_OF_DAY' => 4 * 8,
         'WORD' => 2 * 8,
-        'DATE_AND_TIME' => 4 * 8 # ??? only used in VAR_TEMP
+        'DATE_AND_TIME' => 4 * 8, # ??? only used in VAR_TEMP
+        'TIMER' => 0, # Only in FC calls
       }
       types.each {|name, size| add_type BasicType.new(name, size) }
 		end
@@ -78,7 +79,7 @@ module PlcUtil
 		end
 
 		def lookup_type(type)
-			throw RuntimeException.new "Could not find type '#{type}'" unless @types.key? type
+			raise "Could not find type '#{type}'" unless @types.key? type
 			@types[type]
 		end
 		
@@ -86,6 +87,7 @@ module PlcUtil
 			stack = []
 			in_array_decl = false
 			tagname = start = stop = type = comment = nil
+      db_to_fb = {}
 			file.each_line do |l|
         l.chomp!
 				if in_array_decl
@@ -97,34 +99,53 @@ module PlcUtil
 				else
 					in_array_decl = false
 					case l
-						when /^TYPE "([^"]+)/ 
-							stack = [StructType.new $1, :datatype]
-							add_type stack.last
-						when /^DATA_BLOCK "([^"]+)/
-							stack = [StructType.new $1, :datablock]
-							@datablocks << Variable.new($1, stack.last)
-						when /^VAR_TEMP/
-							s = StructType.new 'VAR_TEMP', :anonymous
-              stack = [s]
-						when /^\s*(\S+) : STRUCT /
-							s = StructType.new 'STRUCT', :anonymous
-							stack.last.add Variable.new $1, s
-							stack << stack.last.children.last.type
-						when /^\s+END_STRUCT/, /END_VAR/, /END_DATA_BLOCK/, /END_TYPE/
-							stack.pop
-            # New variable in struct or data block
-						when /^\s+([A-Za-z0-9_ ]+) : "?([A-Za-z0-9_ ]+?)"?\s*(:=\s*[^;]+)?;(\s*\/\/(.*))?/
-							tagname, type_name, comment = $1, $2, $5
-							stack.last.add Variable.new(tagname, lookup_type(type_name), comment)
-						when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF "?([A-Za-z0-9_]+)"?\s?;(\s*\/\/(.*))?/
-							tagname, start, stop, type, comment = $1, $2, $3, $4, $6
-							stack.last.add Variable.new(tagname, ArrayType.new(lookup_type(type), start..stop), comment)
-						when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF(\s?\/\/(.*))?$/
-							tagname, start, stop, comment = $1, $2, $3, $4
-							in_array_decl = true
+            # TODO should also cater for 'DB  90' type addresses
+          when /^\s+CALL\s"(.*?)"\s,\s"(.*?)"\s;\s*$/ 
+            db_to_fb[$2] = $1
+          when /^TYPE "(.+?)"/ 
+            stack = [StructType.new $1, :datatype]
+            add_type stack.last
+          when /^FUNCTION_BLOCK "(.+?)"/
+            stack = [StructType.new $1, :functionblock]
+            add_type stack.last
+          when /^DATA_BLOCK "(.+?)"/
+            stack = [StructType.new $1, :datablock]
+            @datablocks << Variable.new($1, stack.last)
+          when /^DATA_BLOCK (DB\s+\d+)/
+            stack = [StructType.new $1, :datablock]
+            @datablocks << Variable.new($1, stack.last)
+          when /^VAR_TEMP/
+            s = StructType.new 'VAR_TEMP', :anonymous
+            stack = [s]
+          when /^\s*(\S+) : STRUCT /
+            s = StructType.new 'STRUCT', :anonymous
+            stack.last.add Variable.new $1, s
+            stack << stack.last.children.last.type
+          when /^\s+END_STRUCT/, /END_VAR/, /END_DATA_BLOCK/, /END_TYPE/
+            stack.pop
+          # New variable in struct or data block
+          when /^\s+([A-Za-z0-9_ ]+) : "?([A-Za-z0-9_ ]+?)"?\s*(:=\s*[^;]+)?;(\s*\/\/(.*))?/
+            if stack.any?
+              tagname, type_name, comment = $1, $2, $5
+              stack.last.add Variable.new(tagname, lookup_type(type_name), comment)
+            end
+          when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF "?([A-Za-z0-9_]+)"?\s?;(\s*\/\/(.*))?/
+            tagname, start, stop, type, comment = $1, $2, $3, $4, $6
+            stack.last.add Variable.new(tagname, ArrayType.new(lookup_type(type), start..stop), comment)
+          when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF(\s?\/\/(.*))?$/
+            tagname, start, stop, comment = $1, $2, $3, $4
+            in_array_decl = true
 					end
 				end
 			end
+
+      # Update FB to DB use
+      @datablocks.each do |db|
+        if db_to_fb.key? db.name
+          fb = lookup_type db_to_fb[db.name]
+          fb.children.each {|child| db.type.add child }
+        end
+      end
 		end
 		
 		def defined_type(type)
@@ -162,8 +183,8 @@ module PlcUtil
 			end
 			
 			def add(child)
-				throw RuntimeException.new 'Added nil child' unless child
-				throw RuntimeException.new 'Added nil child type' unless child.type
+				raise 'Added nil child' unless child
+				raise 'Added nil child type' unless child.type
 				@children << child
 			end
 				
@@ -191,8 +212,8 @@ module PlcUtil
 			attr_accessor :range, :type
 			
 			def initialize(type, range)
-				throw RuntimeException.new 'Added nil array type' unless type
-				throw RuntimeException.new 'Added nil array range' unless range
+				raise 'Added nil array type' unless type
+				raise 'Added nil array range' unless range
 				@range, @type = range, type
 			end
 			

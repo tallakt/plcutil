@@ -140,7 +140,7 @@ module PlcUtil
       PlcUtil.module_eval <<-END
         class #{klass}
           attr_accessor #{attrs}
-          attr_reader :tag
+          attr_accessor :tag
 
           def initialize(tag, values=nil)
             @tag = tag

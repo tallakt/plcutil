@@ -64,55 +64,56 @@ module PlcUtil
     end
 
     # This function may be overridden in filter ruby file
-    def filter_handle_tag(name, datablock_name, addr, comment, struct_comment, type, intouch_file)
+    def filter_handle_tag(name, datablock_name, addr, comment, struct_comment, type)
       ww_name = siemens_to_ww_tagname name
       cc = filter_comment_format comment, struct_comment
-      case type
+      created_io = case type
         when :bool
-          intouch_file.new_io_disc(ww_name) do |io|
+          @intouchfile.new_io_disc(ww_name) do |io|
             io.item_name = format_addr(addr, 'X', true)
             io.comment = cc
           end
         when :int
-          intouch_file.new_io_int(ww_name) do |io|
+          @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(addr, 'INT')
             io.comment = cc
           end
         when :word
-          intouch_file.new_io_int(ww_name) do |io|
+          @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(addr, 'WORD')
             io.comment = cc
           end
         when :real
-          intouch_file.new_io_real(ww_name) do |io|
+          @intouchfile.new_io_real(ww_name) do |io|
             io.item_name = format_addr(addr, 'REAL')
             io.comment = cc
           end
         when :byte
-          intouch_file.new_io_int(ww_name) do |io|
+          @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(addr, 'BYTE')
             io.comment = cc
           end
         when :char
-          intouch_file.new_io_int(ww_name) do |io|
+          @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(addr, 'CHAR')
             io.comment = cc
           end
         when :date, :s5time, :time_of_day
           # skip
         when :dint
-          intouch_file.new_io_int(ww_name) do |io|
+          @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(addr, 'DINT')
             io.comment = cc
           end
         when :dword, :time
-          intouch_file.new_io_int(ww_name) do |io|
+          @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(addr, 'DWORD')
             io.comment = cc
           end
         else
           throw RuntimeError.new 'Unsupported type found: ' + type.to_s
       end
+      yield created_io if block_given?
      end
 
 
@@ -120,7 +121,7 @@ module PlcUtil
     def filter_handle_awl_files
       @awllist.each do |awl|
         awl.each_tag do |name, datablock_name, addr, comment, struct_comment, type|
-          filter_handle_tag name, datablock_name, addr, comment, struct_comment, type, @intouchfile
+          filter_handle_tag name, datablock_name, addr, comment, struct_comment, type
         end
       end
     end
