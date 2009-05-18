@@ -121,7 +121,7 @@ module PlcUtil
             s = StructType.new 'STRUCT', :anonymous
             stack.last.add Variable.new $1, s
             stack << stack.last.children.last.type
-          when /^\s+END_STRUCT/, /END_VAR/, /END_DATA_BLOCK/, /END_TYPE/
+          when /^\s+BEGIN/
             stack.pop
           # New variable in struct or data block
           when /^\s+([A-Za-z0-9_ ]+) : "?([A-Za-z0-9_ ]+?)"?\s*(:=\s*[^;]+)?;(\s*\/\/(.*))?/
