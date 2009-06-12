@@ -40,21 +40,68 @@ module PlcUtil
       end
     end
 
+
     def print_io
       ss = %w( :IODisc :IOReal :IndirectAnalog :MemoryReal :IOMsg :IndirectMsg 
                 :MemoryMsg :MemoryDisc :IndirectDisc :IOInt :MemoryInt)
-      ss.each do |section|
-        @intouch_file.each_tag section do |row|
-          puts '%s%-33s%-20s%-20ss%s' % [
-            (row.respond_to?(:alarm_state) && row.alarm_state && row.alarm_state.match(/None/)) ? ' ' : '*', 
-            row.tag, 
-            row.respond_to?(:item_name) ? row.item_name : '',
-            row.respond_to?(:access_name) ? row.access_name : '', 
-            row.comment
-          ]
+      tags = []
+      ss.each {|section| @intouch_file.each_tag(section) {|tag| tags << tag } }
+
+      columns = []
+      columns << {:max => 1, :min => 1, :nospace => true, :gen => Proc.new { |tag| alarm_icon(tag) } }
+      columns << {:max => 50, :min => 15, :gen => lambda {|tag| tag.tag } }
+      columns << {:max => 20, :min => 10, :gen => Proc.new {|tag| get_tag_field(:item_name, tag) } }
+      columns << {:max => 20, :min => 10, :gen => Proc.new {|tag| get_tag_field(:access_name, tag) } }
+      columns << {:rest => true, :gen => Proc.new {|tag| comment_for_tag(tag) } }
+
+      # shrink columns
+      columns.each do |c| 
+        if c[:max]
+          c[:adjusted] = max_str_len(tags, c[:max], c[:min]) {|tag| c[:gen].call(tag) }
         end
       end
+
+      # use remaining space for :rest tag
+      spaces = columns.map {|c| c[:nospace] ? 0 : 1 }.reduce(:+) - 1
+      wasted = columns.map {|c| c[:adjusted] || 0 }.reduce(:+) - spaces
+      rest = columns.find {|c| c[:rest] }
+      @column_width ||= 80
+      rest[:adjusted] = @column_width - wasted if rest
+
+      first_columns = columns - [columns.last]
+      tags.each do |tag|
+        cs = first_columns.map do |c| 
+          fix_string(c, tag).ljust(c[:adjusted]) + (c[:nospace] ? '' : ' ') 
+        end
+        cs << fix_string(columns.last, tag)
+        str = cs.join
+        str = yellow(str) if tag.alarm?
+        puts str
+      end
 		end
+
+    def max_str_len(tags, abs_max, abs_min) 
+      [abs_max, tags.reduce(abs_min) {|max, tag| max = [max, (yield tag).size].max }].min
+    end
+
+
+
+    def get_tag_field(field, tag)
+      if tag.respond_to? field
+        tag.method(field).call || ''
+      else
+        ''
+      end
+    end
+
+    def fix_string(column, tag)
+      str = column[:gen].call(tag)
+      if str.size > column[:adjusted]
+        str[0..(column[:adjusted] - 4)] + '...'
+      else
+        str
+      end
+    end
 
 
     def print_alarm_groups
@@ -77,11 +124,14 @@ module PlcUtil
     end
 
     def print_tag(tag)
-      puts 'Tag: ' + tag
-      @intouch.find_tag(tag).intouch_fields.collect do |field|
-        [field.to_s, row.method(field).call]
-      end.each do |pair|
-        puts '%-20s%s' % pair
+      t = @intouch_file.find_tag(tag)
+      if t
+        puts 'Tag: ' + tag
+        t.intouch_fields.each do |field|
+          puts '%-30s%s' % [field.to_s, t.method(field).call]
+        end
+      else
+        puts 'Tag %s was not found' % tag
       end
     end
 
@@ -95,6 +145,9 @@ module PlcUtil
           @mode = :tag
           @tag = tag
 				end
+				opts.on("-w", "--wide", "Print wider than 80 columns") do
+          @column_width = 9999
+				end
 				opts.on("-a", "--alarm-groups", "Show alarm groups") do
           @mode = :alarm_groups
 				end
@@ -107,5 +160,41 @@ module PlcUtil
 		
 		def show_help
 			puts option_parser
-		end  end
+		end  
+
+    private
+
+    def comment_for_tag(tag)
+      if tag.alarm? 
+        tag.alarm_comment
+      else
+        tag.comment
+      end || ''
+    end
+
+    def alarm_icon(tag)
+      if tag.alarm? 
+        '*'
+      else
+        ' '
+      end
+    end
+
+    def colorize(text, color_code)
+      "#{color_code}#{text}\e[0m"
+    end
+
+    def yellow(text)
+      colorize text, "\e[33m"
+    end
+
+    def red(text)
+      colorize text, "\e[31m"
+    end
+
+    def green(text)
+      colorize text, "\e[32m"
+    end
+
+  end
 end

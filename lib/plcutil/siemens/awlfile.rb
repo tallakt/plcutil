@@ -34,12 +34,7 @@ module PlcUtil
 		def each_tag
 			@datablocks.each do |var|
 				var.type.explode(Address.new(0, data_block_address(var.name)), var.name).each do |item|
-					yield item[:name], 
-            var.name,
-            item[:addr],
-            item[:comment], 
-            item[:struct_comment], 
-            item[:type].downcase.to_sym
+					yield item[:name], item[:addr], item[:comment], item[:struct_comment], item[:type].downcase.to_sym
 				end
 			end
 		end
@@ -162,8 +157,8 @@ module PlcUtil
 			
 			def explode(start_addr, name, comment, struct_comment)
         actual_start = start_addr.next_start bit_size
-				[:addr => actual_start, :name => name, 
-          :struct_comment => struct_comment, :comment => comment, :type => @name]
+        [{:addr => actual_start, :name => name, 
+          :struct_comment => struct_comment, :comment => comment, :type => @name}]
 			end
 			
 			def end_address(start_address)

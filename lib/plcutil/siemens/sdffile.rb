@@ -7,10 +7,15 @@ module PlcUtil
     attr_reader :tags
 
 		def initialize(filename)
-			File.open filename do |f|
-				parse f
-			end
-      tags = []
+      @tags = []
+      case filename
+      when /\-\-/
+        parse $stdin
+      else
+        File.open filename do |f|
+          parse f
+        end
+      end
 		end
 
 
@@ -18,10 +23,18 @@ module PlcUtil
 
     def parse(f)
       f.each_line do |l|
-        tag = OpenStruct.new([:tagname, :addr, :type, :comment].zip(l.strip.split(/,/).map {|x| x.strip }))
+        tag = OpenStruct.new([:tagname, :addr, :datatype, :comment].zip(l.strip.split(/,/).map do |x| 
+          x.gsub(/^"|"$/, '').strip 
+        end))
         tag.addr.gsub! /\s+/, ' '
-        tag.type = tag.type.downcase.to_sym
-        @tags << tag
+        if not tag.datatype.match(/\s/) # skip OB XX, FC XX, FB XX and so on
+          begin
+            tag.datatype = tag.datatype.downcase.to_sym
+            @tags << tag
+          rescue
+            # no worries
+          end
+        end
       end
     end
   end  

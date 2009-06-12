@@ -7,14 +7,15 @@ module PlcUtil
 	class IntouchFile
 		ApostropheReqiredColumns =
 			%w(
-				SymbolicName Comment OnMsg Group AccessName HiAlarmInhibitor MajDevAlarmInhibitor DSCAlarmInhibitor InitialMessage 
-				HiHiAlarmInhibitor tag Application MinDevAlarmInhibitor Topic AlarmComment EngUnits LoAlarmInhibitor 
+				SymbolicName Comment OnMsg Group AccessName 
+        HiAlarmInhibitor MajDevAlarmInhibitor 
+        DSCAlarmInhibitor InitialMessage 
+				HiHiAlarmInhibitor tag Application MinDevAlarmInhibitor 
+        Topic AlarmComment EngUnits LoAlarmInhibitor 
 				OffMsg LoLoAlarmInhibitor RocAlarmInhibitor ItemName
 			)
 
 		def initialize(filename = nil, options = {})
-			# Lookup table to check wether a certain column must write its values inside apostrophes
-			@lookup_apostrophe_fields = ApostropheReqiredColumns.inject({}) {|h, v| h[v] = true; h}
 
       # load standard sections
 			@sections = YAML.load_file File.join(File.dirname(__FILE__), "standard_sections.yaml")
@@ -38,10 +39,11 @@ module PlcUtil
       if section
         @sections[section][:rows].find {|row| row.tag == tag}
       else
-        tmp = @sections.collect do |sec|
-          sec[:rows].find {|row| row.tag == tag }
-        end.flatten
-        tmp && tmp.first
+        result = []
+        @sections.each do |name, sec|
+          result << sec[:rows].find {|row| row.tag == tag }
+        end
+        result.find {|x| x }
       end
 		end
 
@@ -91,13 +93,13 @@ module PlcUtil
 					else
 						# new tag
             cols = l.gsub(/"/, '').split /;/
-						new_data_instance(current[:name][1..-1], cols[0], cols[1, -1])
+						new_data_instance(current[:name][1..-1], cols[0], cols[1..-1], colnames)
 				end
 			end
 		end
 		
 		def write_csv(io, mode = :update)
-			throw 'Please use mode :ask/:update/:replace' unless [:ask, :replace, :update].include? mode
+			raise 'Please use mode :ask/:update/:replace' unless [:ask, :replace, :update].include? mode
 			io.puts ':mode=' + mode.to_s
 			@sections.each_value do |section|
         next if section[:rows].empty?
@@ -112,12 +114,14 @@ module PlcUtil
 
 
     def apostrophe_req?(colname)
-      @lookup_apostrophe_fields[colname] || colname.match(/^:/)
+			# Lookup table to check wether a certain column must write its values inside apostrophes
+			@@lookup_apostrophe_fields ||= ApostropheReqiredColumns.inject({}) {|h, v| h[v] = true; h}
+      @@lookup_apostrophe_fields[colname] || colname.match(/^:/)
     end
 
     def to_csv_line(colnames)
       '[%s].join ";"' % colnames.map do |c|
-        cc = c.match(/^:/) ? 'tag' : camel_conv(c)
+        cc = c.match(/^:/) ? 'tag' : dasherize(c)
         if apostrophe_req? c
           # When nil, dont display the "" chars, since this will overwrite with an empty string
           # The check is performed at runtime in the generated class
@@ -133,8 +137,8 @@ module PlcUtil
       # define new class for the data type
       klass = colnames[0][1..-1]
       #return if defined? klass
-      attrs = colnames[1..-1].map {|x| ':' + camel_conv(x) }.join(', ')
-      attr_list = colnames[1..-1].map {|x| camel_conv(x)}.join(', ')
+      attrs = colnames[1..-1].map {|x| ':' + dasherize(x) }.join(', ')
+      attr_list = colnames[1..-1].map {|x| dasherize(x)}.join(', ')
       values_format = colnames.map {|c| apostrophe_req?(c) ? '"%s"' : '%s'}.join(';')
 
       PlcUtil.module_eval <<-END
@@ -142,9 +146,11 @@ module PlcUtil
           attr_accessor #{attrs}
           attr_accessor :tag
 
-          def initialize(tag, values=nil)
+          def initialize(tag, values={})
             @tag = tag
-            #{attr_list} = values if values
+            values.each do |key, value|
+              method(key.to_s + '=').call(value)
+            end
           end
 
           def to_csv
@@ -154,6 +160,18 @@ module PlcUtil
           def intouch_fields
             [#{attrs}]
           end
+
+          def to_h
+            result = {:tag => tag }
+            intouch_fields.each do |field|
+              result[field] = method(field).call
+            end
+            result
+          end
+
+          def alarm?
+            respond_to?(:alarm_state) && alarm_state && alarm_state.match(/On|Off/)
+          end
         end
       END
 
@@ -161,11 +179,11 @@ module PlcUtil
       IntouchFile.class_eval <<-END
         public
         
-        def new_#{camel_conv klass}(tag, values = nil)
+        def new_#{dasherize klass}(tag, values = {})
           result = #{klass}.new tag, values
           @sections['#{colnames[0]}'][:rows] << result
-          if result.respond_to? :access_name
-            result.access_name = @options[:access_name]
+          if result.respond_to? :access_name 
+            result.access_name = @options[:access_name] if @options[:access_name]
           end
           yield result if block_given?
           result
@@ -173,11 +191,12 @@ module PlcUtil
       END
     end
 
-    def new_data_instance(klass, tag, values)
-      method('new_' + camel_conv(klass)).call(tag, values)
+    def new_data_instance(klass, tag, values, colnames)
+      attributes = colnames[1..-1].map {|cn| dasherize(cn)}
+      method('new_' + dasherize(klass)).call(tag, Hash[attributes.zip(values)])
     end
 
-    def camel_conv(s)
+    def dasherize(s)
       res = s.gsub(/[A-Z]{3,}/){|x| x[0..-2].capitalize + x[-1..-1]}
       res.gsub!(/[A-Z]/, '_\0')
       res.gsub! /^_/ , ''
