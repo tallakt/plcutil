@@ -31,10 +31,16 @@ module PlcUtil
 			end
 		end
 		
-		def each_tag
+		def each_tag(options = {})
 			@datablocks.each do |var|
-				var.type.explode(Address.new(0, data_block_address(var.name)), var.name).each do |item|
-					yield item[:name], item[:addr], item[:comment], item[:struct_comment], item[:type].downcase.to_sym
+        name = var.name
+        if options[:no_block]
+          name = nil
+        end
+				var.type.explode(Address.new(0, data_block_address(var.name)), name, options).each do |item|
+          ii = item.clone
+          ii[:type] = item[:type].downcase.to_sym
+					yield ii
 				end
 			end
 		end
@@ -64,7 +70,8 @@ module PlcUtil
         'TIME_OF_DAY' => 4 * 8,
         'WORD' => 2 * 8,
         'DATE_AND_TIME' => 4 * 8, # ??? only used in VAR_TEMP
-        'TIMER' => 0, # Only in FC calls
+        'TIMER' => 1, # Only in FC calls
+        'CONT_C' => 125 * 8, 
       }
       types.each {|name, size| add_type BasicType.new(name, size) }
 		end
@@ -95,7 +102,7 @@ module PlcUtil
 					in_array_decl = false
 					case l
             # TODO should also cater for 'DB  90' type addresses
-          when /^\s+CALL\s"(.*?)"\s,\s"(.*?)"\s;\s*$/ 
+          when /^\s+CALL\s"(.*?)"\s,\s"(.*?)"\s(;\s*|\()$/ 
             db_to_fb[$2] = $1
           when /^TYPE "(.+?)"/ 
             stack = [StructType.new $1, :datatype]
@@ -121,7 +128,7 @@ module PlcUtil
           # New variable in struct or data block
           when /^\s+([A-Za-z0-9_ ]+) : "?([A-Za-z0-9_ ]+?)"?\s*(:=\s*[^;]+)?;(\s*\/\/(.*))?/
             if stack.any?
-              tagname, type_name, comment = $1, $2, $5
+              tagname, type_name, comment = $1, $2, ($5 || '')
               stack.last.add Variable.new(tagname, lookup_type(type_name), comment)
             end
           when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF "?([A-Za-z0-9_]+)"?\s?;(\s*\/\/(.*))?/
@@ -138,7 +145,7 @@ module PlcUtil
       @datablocks.each do |db|
         if db_to_fb.key? db.name
           fb = lookup_type db_to_fb[db.name]
-          fb.children.each {|child| db.type.add child }
+          fb.children.each {|child| db.type.add child } if fb.respond_to? :children
         end
       end
 		end
@@ -155,7 +162,7 @@ module PlcUtil
 				@bit_size, @name = bit_size, name
 			end
 			
-			def explode(start_addr, name, comment, struct_comment)
+			def explode(start_addr, name, comment, struct_comment, options = {})
         actual_start = start_addr.next_start bit_size
         [{:addr => actual_start, :name => name, 
           :struct_comment => struct_comment, :comment => comment, :type => @name}]
@@ -191,12 +198,13 @@ module PlcUtil
         addr.next_start!
 			end
 			
-			def explode(start_addr, name, comment = nil, struct_comment = nil)
+			def explode(start_addr, name, comment = nil, struct_comment = nil, options = {})
 				addr = start_addr.next_start
 				exploded = []
 				@children.each do |child|
-					exploded += child.type.explode(addr, name + '.' + child.name, child.comment, 
-                                         type == :datablock ? child.comment : struct_comment)
+
+					exploded += child.type.explode(addr, [name, child.name].compact.join('.'), child.comment, 
+                                         type == :datablock ? child.comment : struct_comment, options)
 					addr = child.type.end_address addr
 				end
 				exploded
@@ -224,11 +232,11 @@ module PlcUtil
 				addr
 			end
 
-			def explode(start_addr, name, comment, struct_comment)
+			def explode(start_addr, name, comment, struct_comment, options = {})
 				exploded = []
 				addr = start_addr.next_start
 				range.to_a.each_with_index do |v, i|
-					exploded += type.explode(addr, name + '[' + v.to_s + ']', comment, struct_comment)
+					exploded += type.explode(addr, name + '[' + v.to_s + ']', comment, struct_comment, options = {})
 					addr = type.end_address(addr)
 				end
 				exploded

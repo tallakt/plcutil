@@ -38,14 +38,14 @@ module PlcUtil
       @used_tags = {}
       
       @sdflist.each do |sdf|
-        sdf.tags.each do |tag|
-          @used_tags[siemens_to_ww_tagname_long tag.tagname] = true
+        sdf.tags.each do |item|
+          @used_tags[siemens_to_ww_tagname_long item[:name]] = true
         end
       end
 
       @awllist.each do |awl|
-        awl.each_tag do |tag, data_block_name, addr, comment, istruct_comment, type|
-          @used_tags[siemens_to_ww_tagname_long tag] = true
+        awl.each_tag :no_block => @no_block do |item|
+          @used_tags[siemens_to_ww_tagname_long item[:name]] = true
         end
       end
 
@@ -74,62 +74,65 @@ module PlcUtil
 		
     # This function may be overriden in filter ruby file
     def filter_comment_format(comment, struct_comment)
-      if comment || struct_comment
-        [comment, struct_comment].compact.join(' / ').gsub(/"/, '')
+      sc, cc = struct_comment, comment
+      comment = nil unless cc && cc.match(/./)
+      sc = nil unless sc && sc.match(/./)
+      if cc || sc
+        [cc, sc].uniq.compact.join(' / ').gsub(/"/, '')
       else
         ''
       end
     end
 
     # This function may be overridden in filter ruby file
-    def filter_handle_tag(name, datablock_name, addr, comment, struct_comment, type)
-      ww_name = siemens_to_ww_tagname name
-      cc = filter_comment_format comment, struct_comment
-      created_io = case type
+    def filter_handle_tag(item)
+      ww_name = siemens_to_ww_tagname item[:name]
+      cc = filter_comment_format item[:comment], item[:struct_comment]
+      created_io = case item[:type]
         when :bool
           @intouchfile.new_io_disc(ww_name) do |io|
-            io.item_name = format_addr(addr, 'X', true)
+            io.item_name = format_addr(item[:addr], 'X', true)
             io.comment = cc
           end
         when :int
           @intouchfile.new_io_int(ww_name) do |io|
-            io.item_name = format_addr(addr, 'INT')
+            io.item_name = format_addr(item[:addr], 'INT')
             io.comment = cc
           end
         when :word
           @intouchfile.new_io_int(ww_name) do |io|
-            io.item_name = format_addr(addr, 'WORD')
+            io.item_name = format_addr(item[:addr], 'WORD')
             io.comment = cc
           end
         when :real
           @intouchfile.new_io_real(ww_name) do |io|
-            io.item_name = format_addr(addr, 'REAL')
+            io.item_name = format_addr(item[:addr], 'REAL')
             io.comment = cc
           end
         when :byte
           @intouchfile.new_io_int(ww_name) do |io|
-            io.item_name = format_addr(addr, 'BYTE')
+            io.item_name = format_addr(item[:addr], 'BYTE')
             io.comment = cc
           end
         when :char
           @intouchfile.new_io_int(ww_name) do |io|
-            io.item_name = format_addr(addr, 'CHAR')
+            io.item_name = format_addr(item[:addr], 'CHAR')
             io.comment = cc
           end
         when :date, :s5time, :time_of_day, :timer
           # skip
         when :dint
           @intouchfile.new_io_int(ww_name) do |io|
-            io.item_name = format_addr(addr, 'DINT')
+            io.item_name = format_addr(item[:addr], 'DINT')
             io.comment = cc
           end
         when :dword, :time
           @intouchfile.new_io_int(ww_name) do |io|
-            io.item_name = format_addr(addr, 'DWORD')
+            io.item_name = format_addr(item[:addr], 'DWORD')
             io.comment = cc
           end
         else
-          throw RuntimeError.new 'Unsupported type found: ' + type.to_s
+          raise RuntimeError.new('Unsupported type found: ' + item[:type].to_s)
       end
       yield created_io if block_given?
      end
@@ -138,8 +141,8 @@ module PlcUtil
     # This function may be overridden in filter ruby file
     def filter_handle_sdf_files
       @sdflist.each do |sdf|
-        sdf.tags.each do |tag|
-          filter_handle_tag tag.tagname, '', tag.addr, tag.comment, nil, tag.datatype
+        sdf.tags.each do |item|
+          filter_handle_tag item
         end
       end
     end
@@ -147,8 +150,8 @@ module PlcUtil
     # This function may be overridden in filter ruby file
     def filter_handle_awl_files
       @awllist.each do |awl|
-        awl.each_tag do |name, datablock_name, addr, comment, struct_comment, type|
-          filter_handle_tag name, datablock_name, addr, comment, struct_comment, type
+        awl.each_tag :no_block => @no_block do |item|
+          filter_handle_tag item
         end
       end
     end
@@ -167,11 +170,7 @@ module PlcUtil
     end
 
     def siemens_to_ww_tagname_long(s)
-      if @no_block
-        s.gsub /^[^\.]*./, ''
-      else
-        s
-      end.gsub(/[\. ]/, '_').gsub(/\[(\d+)\]/) { '_' + $1 }
+      s.gsub(/[\. ]/, '_').gsub(/\[(\d+)\]/) { '_' + $1 }
     end
 
     def new_unique_tag_helper(s, n)

@@ -9,7 +9,7 @@ module PlcUtil
 		def initialize(filename)
       @tags = []
       case filename
-      when /\-\-/
+      when '--'
         parse $stdin
       else
         File.open filename do |f|
@@ -23,14 +23,16 @@ module PlcUtil
 
     def parse(f)
       f.each_line do |l|
-        tag = OpenStruct.new([:tagname, :addr, :datatype, :comment].zip(l.strip.split(/,/).map do |x| 
+        item = {}
+        values = l.strip.split(/,/).map do |x| 
           x.gsub(/^"|"$/, '').strip 
-        end))
-        tag.addr.gsub! /\s+/, ' '
-        if not tag.datatype.match(/\s/) # skip OB XX, FC XX, FB XX and so on
+        end
+        item = Hash[[:name, :addr, :type, :comment].zip values]
+        item[:addr].gsub! /\s+/, ' '
+        if not item[:type].match(/\s/) # skip OB XX, FC XX, FB XX and so on
           begin
-            tag.datatype = tag.datatype.downcase.to_sym
-            @tags << tag
+            item[:type] = item[:type].downcase.to_sym
+            @tags << item
           rescue
             # no worries
           end
