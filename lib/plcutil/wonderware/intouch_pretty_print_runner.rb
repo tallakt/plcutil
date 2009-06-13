@@ -4,6 +4,8 @@ require 'plcutil/wonderware/intouchfile'
 
 module PlcUtil
   class IntouchPrettyPrintRunner
+    MAX_WW_TAGLENGTH = 32
+
     def initialize(arguments)
       # Standard options
       @mode = :io
@@ -50,7 +52,7 @@ module PlcUtil
 
       columns = []
       columns << {:max => 1, :min => 1, :nospace => true, :gen => Proc.new { |tag| alarm_icon(tag) } }
-      columns << {:max => 50, :min => 15, :gen => lambda {|tag| tag.tag } }
+      columns << {:max => MAX_WW_TAGLENGTH, :min => 15, :gen => lambda {|tag| tag.tag } }
       columns << {:max => 20, :min => 10, :gen => Proc.new {|tag| get_tag_field(:item_name, tag) } }
       columns << {:max => 20, :min => 10, :gen => Proc.new {|tag| get_tag_field(:access_name, tag) } }
       columns << {:rest => true, :gen => Proc.new {|tag| comment_for_tag(tag) } }
@@ -76,7 +78,11 @@ module PlcUtil
         end
         cs << fix_string(columns.last, tag)
         str = cs.join
-        str = yellow(str) if tag.alarm?
+        if tag.tag.size > MAX_WW_TAGLENGTH
+          str = red(str)
+        else
+          str = yellow(str) if tag.alarm?
+        end
         puts str
       end
 		end
@@ -154,8 +160,6 @@ module PlcUtil
 				end
 				opts.on_tail("-h", "--help", "Show this message") do
 					puts opts
-          puts ''
-          puts 'TIP: install ncurses gem to let intouchpp use full console width'
 					exit
 				end
 			end	
@@ -168,15 +172,7 @@ module PlcUtil
     private
 
     def console_width
-      result = 80
-      if require 'ncurses'
-        Ncurses.initscr
-        begin
-          result = Ncurses.COLS - 6 #???
-        ensure
-          Ncurses.endwin
-        end
-      end
+      80
     end
 
     def comment_for_tag(tag)
