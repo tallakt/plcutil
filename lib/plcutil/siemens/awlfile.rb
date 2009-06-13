@@ -88,6 +88,7 @@ module PlcUtil
 		def parse(file)
 			stack = []
 			in_array_decl = false
+      in_datablock_decl = false
 			tagname = start = stop = type = comment = nil
       db_to_fb = {}
 			file.each_line do |l|
@@ -102,27 +103,27 @@ module PlcUtil
 					in_array_decl = false
 					case l
             # TODO should also cater for 'DB  90' type addresses
-          when /^\s+CALL\s"(.*?)"\s,\s"(.*?)"\s(;\s*|\()$/ 
-            db_to_fb[$2] = $1
           when /^TYPE "(.+?)"/ 
             stack = [StructType.new $1, :datatype]
             add_type stack.last
           when /^FUNCTION_BLOCK "(.+?)"/
             stack = [StructType.new $1, :functionblock]
             add_type stack.last
-          when /^DATA_BLOCK "(.+?)"/
-            stack = [StructType.new $1, :datablock]
-            @datablocks << Variable.new($1, stack.last)
-          when /^DATA_BLOCK (DB\s+\d+)/
-            stack = [StructType.new $1, :datablock]
-            @datablocks << Variable.new($1, stack.last)
+          when /^DATA_BLOCK ("(.+?)"|DB\s+(\d+))/
+            in_datablock_decl = true
+            name = $2 || ('DB' + $3)
+            stack = [StructType.new name, :datablock]
+            @datablocks << Variable.new(name, stack.last)
           when /^VAR_TEMP/
             s = StructType.new 'VAR_TEMP', :anonymous
             stack = [s]
           when /^\s*(\S+) : STRUCT /
+            in_datablock_decl = false
             s = StructType.new 'STRUCT', :anonymous
             stack.last.add Variable.new $1, s
             stack << stack.last.children.last.type
+          when /^BEGIN$/
+            in_datablock_decl = false
           when /^\s+BEGIN/
             stack.pop
           # New variable in struct or data block
@@ -137,6 +138,11 @@ module PlcUtil
           when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF(\s?\/\/(.*))?$/
             tagname, start, stop, comment = $1, $2, $3, $4
             in_array_decl = true
+          when /^"(.*?)"$/
+            # datablock definition is stored in FB definition
+            # remember which FB to use but assign the FB
+            # only after all blocks have been loaded
+            db_to_fb[stack.first.name] = $1 if in_datablock_decl
 					end
 				end
 			end
