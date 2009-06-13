@@ -34,6 +34,10 @@ module PlcUtil
       case @mode
       when :io
         print_io
+      when :duplicates
+        print_duplicates
+      when :missing
+        print_alarms_missing_text
       when :alarm_groups
         print_alarm_groups
       when :access_names
@@ -43,12 +47,45 @@ module PlcUtil
       end
     end
 
+    def addr_signature(tag) 
+      get_tag_field(:access_name, tag) + get_tag_field(:item_name, tag)
+    end
+
+    def tag_is_io?(tag)
+      tag.respond_to?(:item_name) && tag.item_name &&
+        tag.respond_to?(:access_name) && tag.access_name
+    end
+
+    def print_duplicates
+      print_io do |tags| 
+        addresscount = {}
+
+        tags.each do |tag| 
+          addr = addr_signature tag
+
+          addresscount[addr] ||= 0
+          addresscount[addr] += 1 if tag_is_io?(tag)
+        end
+        tmp = tags.select {|tag| addresscount[addr_signature tag] > 1 }
+        tmp.sort {|a, b| addr_signature(a) <=> addr_signature(b) }
+      end
+    end
+
+    def print_alarms_missing_text
+      print_io do |tags| 
+        tags.select {|tag| tag.alarm? && (!tag.alarm_comment || !tag.alarm_comment.match(/\S/)) }
+      end
+    end
 
     def print_io
       ss = %w( :IODisc :IOReal :IndirectAnalog :MemoryReal :IOMsg :IndirectMsg 
                 :MemoryMsg :MemoryDisc :IndirectDisc :IOInt :MemoryInt)
       tags = []
       ss.each {|section| @intouch_file.each_tag(section) {|tag| tags << tag } }
+
+      if block_given?
+        tags = yield tags
+      end
 
       columns = []
       columns << {:max => 1, :min => 1, :nospace => true, :gen => Proc.new { |tag| alarm_icon(tag) } }
@@ -157,6 +194,12 @@ module PlcUtil
 				end
 				opts.on("-a", "--alarm-groups", "Show alarm groups") do
           @mode = :alarm_groups
+				end
+				opts.on("-m", "--missing", "Show only alarms with missing text") do
+          @mode = :missing
+				end
+				opts.on("-d", "--duplicates", "Show only duplicated tags (shares address)") do
+          @mode = :duplicates
 				end
 				opts.on_tail("-h", "--help", "Show this message") do
 					puts opts
