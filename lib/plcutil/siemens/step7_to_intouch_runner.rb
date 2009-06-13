@@ -92,48 +92,53 @@ module PlcUtil
         when :bool
           @intouchfile.new_io_disc(ww_name) do |io|
             io.item_name = format_addr(item[:addr], 'X', true)
-            io.comment = cc
+            io
           end
         when :int
           @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(item[:addr], 'INT')
-            io.comment = cc
+            io
           end
         when :word
           @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(item[:addr], 'WORD')
-            io.comment = cc
+            io
           end
         when :real
           @intouchfile.new_io_real(ww_name) do |io|
             io.item_name = format_addr(item[:addr], 'REAL')
-            io.comment = cc
+            io
           end
         when :byte
           @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(item[:addr], 'BYTE')
-            io.comment = cc
+            io
           end
         when :char
           @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(item[:addr], 'CHAR')
-            io.comment = cc
+            io
           end
         when :date, :s5time, :time_of_day, :timer
           # skip
         when :dint
           @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(item[:addr], 'DINT')
-            io.comment = cc
+            io
           end
         when :dword, :time
           @intouchfile.new_io_int(ww_name) do |io|
             io.item_name = format_addr(item[:addr], 'DWORD')
-            io.comment = cc
+            io
           end
         else
           raise RuntimeError.new('Unsupported type found: ' + item[:type].to_s)
       end
+      
+      # Common options
+      created_io.item_use_tagname = 'No'
+      created_io.comment = cc
+
       yield created_io if block_given?
      end
 
