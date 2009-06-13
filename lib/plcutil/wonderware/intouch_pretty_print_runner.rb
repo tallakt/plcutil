@@ -1,3 +1,4 @@
+require 'rubygems'
 require 'optparse' 
 require 'plcutil/wonderware/intouchfile'
 
@@ -65,7 +66,7 @@ module PlcUtil
       spaces = columns.map {|c| c[:nospace] ? 0 : 1 }.reduce(:+) - 1
       wasted = columns.map {|c| c[:adjusted] || 0 }.reduce(:+) - spaces
       rest = columns.find {|c| c[:rest] }
-      @column_width ||= 80
+      @column_width ||= console_width
       rest[:adjusted] = @column_width - wasted if rest
 
       first_columns = columns - [columns.last]
@@ -145,7 +146,7 @@ module PlcUtil
           @mode = :tag
           @tag = tag
 				end
-				opts.on("-w", "--wide", "Print wider than 80 columns") do
+				opts.on("-w", "--wide", "Print wider than console width") do
           @column_width = 9999
 				end
 				opts.on("-a", "--alarm-groups", "Show alarm groups") do
@@ -153,6 +154,8 @@ module PlcUtil
 				end
 				opts.on_tail("-h", "--help", "Show this message") do
 					puts opts
+          puts ''
+          puts 'TIP: install ncurses gem to let intouchpp use full console width'
 					exit
 				end
 			end	
@@ -163,6 +166,18 @@ module PlcUtil
 		end  
 
     private
+
+    def console_width
+      result = 80
+      if require 'ncurses'
+        Ncurses.initscr
+        begin
+          result = Ncurses.COLS - 6 #???
+        ensure
+          Ncurses.endwin
+        end
+      end
+    end
 
     def comment_for_tag(tag)
       if tag.alarm? 
