@@ -62,13 +62,18 @@ module PlcUtil
 			end
 		end
 
-    def format_addr(addr, ww_tag, is_bool = false)
+    def format_addr(addr, ww_data_type, options = {})
       case addr
       when String
-        addr.gsub /\s/, '' # from symbol list file, ww accepts addres directly
+        # from symbol list file, ww accepts addres directly
+        if options[:is_bool]
+          addr.gsub /\s/, ''
+        else
+          addr.gsub /^([A-Z])[DW]\s*([\d\.]+)/, '\1' + ww_data_type + '\2'
+        end
       else
         db = addr.data_block_addr || 'DB???'
-        db + ',' + ww_tag + addr.byte.to_s + (is_bool ? ('.' + addr.bit.to_s) : '')
+        db + ',' + ww_data_type + addr.byte.to_s + (options[:is_bool] ? ('.' + addr.bit.to_s) : '')
       end
     end
 		
@@ -91,7 +96,7 @@ module PlcUtil
       created_io = case item[:type]
         when :bool
           @intouchfile.new_io_disc(ww_name) do |io|
-            io.item_name = format_addr(item[:addr], 'X', true)
+            io.item_name = format_addr(item[:addr], 'X', :is_bool => true)
             io
           end
         when :int
@@ -136,10 +141,12 @@ module PlcUtil
       end
       
       # Common options
-      created_io.item_use_tagname = 'No'
-      created_io.comment = cc
+      if created_io
+        created_io.item_use_tagname = 'No'
+        created_io.comment = cc
 
-      yield created_io if block_given?
+        yield created_io if block_given?
+      end
      end
 
 

@@ -6,11 +6,13 @@ module PlcUtil
 	class SdfFile
     attr_reader :tags
 
-		def initialize(filename)
+		def initialize(filename = nil)
       @tags = []
       case filename
       when '--'
         parse $stdin
+      when nil
+        # dont read file
       else
         File.open filename do |f|
           parse f
