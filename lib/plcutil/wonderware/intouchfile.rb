@@ -149,7 +149,8 @@ module PlcUtil
           def initialize(tag, values={})
             @tag = tag
             values.each do |key, value|
-              method(key.to_s + '=').call(value)
+              mn = key.to_s + '='
+              method(mn).call(value) if respond_to?(mn)
             end
           end
 
