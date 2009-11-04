@@ -32,7 +32,8 @@ The commands support the --help parameter for a full list of parameters
 
 == INSTALL:
 
-  sudo gem sources -a http://gems.github.com
+  sudo gem gemcutter
+	sudo gem tumble
   sudo gem install tallakt-plcutil
 
 

@@ -5,10 +5,10 @@ begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
     gem.name = "tallakt-plcutil"
-    gem.summary = %Q{TODO: one-line summary of your gem}
-    gem.description = %Q{TODO: longer description of your gem}
+    gem.summary = %Q{Ruby PLC file library}
+    gem.description = %Q{Ruby library for using Siemens and Intouch files} 
     gem.email = "tallak@tveide.net"
-    gem.homepage = "http://github.com/tallakt/tallakt-plcutil"
+    gem.homepage = "http://github.com/tallakt/plcutil"
     gem.authors = ["Tallak Tveide"]
     gem.add_development_dependency "thoughtbot-shoulda", ">= 0"
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings

@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 require 'rubygems'
-require 'plcutil/siemens/awl_pretty_print_runner'
+require 'tallakt-plcutil/siemens/awl_pretty_print_runner'
 
 # try: awlpp --help
 PlcUtil::AwlPrettyPrintRunner.new ARGV
