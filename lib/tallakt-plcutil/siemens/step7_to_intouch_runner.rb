@@ -1,9 +1,9 @@
 #!/usr/bin/ruby
 
 require 'optparse'
-require 'plcutil/siemens/awlfile'
-require 'plcutil/siemens/sdffile'
-require 'plcutil/wonderware/intouchfile'
+require 'tallakt-plcutil/siemens/awlfile'
+require 'tallakt-plcutil/siemens/sdffile'
+require 'tallakt-plcutil/wonderware/intouchfile'
 
 module PlcUtil
 	# Command line tool to read and output an awl file

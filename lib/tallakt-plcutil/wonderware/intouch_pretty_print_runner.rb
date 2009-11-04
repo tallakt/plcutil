@@ -1,6 +1,6 @@
 require 'rubygems'
 require 'optparse' 
-require 'plcutil/wonderware/intouchfile'
+require 'tallakt-plcutil/wonderware/intouchfile'
 
 module PlcUtil
   class IntouchPrettyPrintRunner

@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
 require 'optparse'
-require 'plcutil/siemens/awlfile'
+require 'tallakt-plcutil/siemens/awlfile'
 
 module PlcUtil
 	# Command line tool to read and output an awl file
