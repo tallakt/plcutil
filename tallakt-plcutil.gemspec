@@ -5,17 +5,18 @@
 
 Gem::Specification.new do |s|
   s.name = %q{tallakt-plcutil}
-  s.version = "0.1.0"
+  s.version = "0.2.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Tallak Tveide"]
-  s.date = %q{2009-11-04}
+  s.date = %q{2010-10-12}
   s.description = %q{Ruby library for using Siemens and Intouch files}
   s.email = %q{tallak@tveide.net}
-  s.executables = ["awlpp", "intouchpp", "s7tointouch"]
+  s.executables = ["awlpp", "intouchpp", "pl7tointouch", "s7tointouch"]
   s.extra_rdoc_files = [
     "LICENSE",
-     "README.rdoc"
+     "README.rdoc",
+     "TODO"
   ]
   s.files = [
     ".gitignore",
@@ -28,8 +29,10 @@ Gem::Specification.new do |s|
      "VERSION",
      "bin/awlpp",
      "bin/intouchpp",
+     "bin/pl7tointouch",
      "bin/s7tointouch",
      "lib/tallakt-plcutil.rb",
+     "lib/tallakt-plcutil/schneider/pl7_to_intouch_runner.rb",
      "lib/tallakt-plcutil/siemens/awl_pretty_print_runner.rb",
      "lib/tallakt-plcutil/siemens/awlfile.rb",
      "lib/tallakt-plcutil/siemens/sdffile.rb",
@@ -43,16 +46,17 @@ Gem::Specification.new do |s|
      "script/destroy.cmd",
      "script/generate",
      "script/generate.cmd",
+     "tallakt-plcutil.gemspec",
      "test/helper.rb",
      "test/input_files/step7_v5.4/00000001.AWL",
      "test/input_files/step7_v5.4/S7_pro2.zip",
      "test/input_files/step7_v5.4/SYMLIST.DBF",
      "test/test_tallakt-plcutil.rb"
   ]
-  s.homepage = %q{http://github.com/tallakt/tallakt-plcutil}
+  s.homepage = %q{http://github.com/tallakt/plcutil}
   s.rdoc_options = ["--charset=UTF-8"]
   s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.3.5}
+  s.rubygems_version = %q{1.3.6}
   s.summary = %q{Ruby PLC file library}
   s.test_files = [
     "test/helper.rb",

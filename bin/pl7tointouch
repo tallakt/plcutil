@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'tallakt-plcutil/schneider/pl7_to_intouch_runner'
+
+# try: pl7tointouch --help
+PlcUtil::PL7ToIntouchRunner.new ARGV
+

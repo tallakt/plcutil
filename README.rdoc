@@ -23,6 +23,10 @@ Convert a siemens IO list into a Wonderware Intouch (non IAS) DB import file
 
   s7tointouch -s SYMLIST.DBF -a SIEMENSPLC 00000007.AWL
 
+Convert a PL7 text export file to intouch CSV import file
+
+  pl7tointouch -i exported.txt -o importme.csv 
+
 The commands support the --help parameter for a full list of parameters
 
 
@@ -33,7 +37,6 @@ The commands support the --help parameter for a full list of parameters
 == INSTALL:
 
   sudo gem gemcutter
-	sudo gem tumble
   sudo gem install tallakt-plcutil
 
 
