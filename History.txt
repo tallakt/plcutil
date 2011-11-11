@@ -1,3 +1,9 @@
+== 0.2.2 2011-11-11
+
+* clean up for Ruby 1.9 support
+* remove jeweller, along with a lot of chaff
+
+
 == 0.2.0 2010-10-12
 
 * 1 enhancement

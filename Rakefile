@@ -1,21 +1,6 @@
 require 'rubygems'
 require 'rake'
 
-begin
-  require 'jeweler'
-  Jeweler::Tasks.new do |gem|
-    gem.name = "tallakt-plcutil"
-    gem.summary = %Q{Ruby PLC file library}
-    gem.description = %Q{Ruby library for using Siemens and Intouch files} 
-    gem.email = "tallak@tveide.net"
-    gem.homepage = "http://github.com/tallakt/plcutil"
-    gem.authors = ["Tallak Tveide"]
-    # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
-  end
-rescue LoadError
-  puts "Jeweler (or a dependency) not available. Install it with: sudo gem install jeweler"
-end
-
 require 'rake/testtask'
 Rake::TestTask.new(:test) do |test|
   test.libs << 'lib' << 'test'

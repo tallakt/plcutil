@@ -3,7 +3,6 @@
 require 'rubygems'
 
 module PlcUtil
-
 	# Reads a Siemens Step 7 AWL file and creates single tags with addresses and comment
 	class AwlFile
     attr_reader :symlist
@@ -19,7 +18,8 @@ module PlcUtil
 
 				raise 'Specified symlist file not found' unless File.exists? options[:symlist]
 				table = DBF::Table.new(options[:symlist])
-				table.records.each do |rec|
+				table.each do |rec|
+          next unless rec
 					@symlist[rec.attributes['_skz']] = rec.attributes['_opiec'] # or _ophist or _datatyp
 				end
 			end
@@ -77,6 +77,7 @@ module PlcUtil
 		end
 		
 		def add_type(type)
+        p type 
 				@types[type.name] = type
 		end
 
@@ -104,15 +105,15 @@ module PlcUtil
 					case l
             # TODO should also cater for 'DB  90' type addresses
           when /^TYPE "(.+?)"/ 
-            stack = [StructType.new $1, :datatype]
-            add_type stack.last
+            stack = StructType.new($1), :datatype
+            add_type stack.first
           when /^FUNCTION_BLOCK "(.+?)"/
-            stack = [StructType.new $1, :functionblock]
-            add_type stack.last
+            stack = StructType.new($1), :functionblock
+            add_type stack.first
           when /^DATA_BLOCK ("(.+?)"|DB\s+(\d+))/
             in_datablock_decl = true
             name = $2 || ('DB' + $3)
-            stack = [StructType.new name, :datablock]
+            stack = [StructType.new(name), :datablock]
             @datablocks << Variable.new(name, stack.last)
           when /^VAR_TEMP/
             s = StructType.new 'VAR_TEMP', :anonymous
