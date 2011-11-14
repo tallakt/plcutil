@@ -1,6 +1,5 @@
 #!/usr/bin/ruby
 
-require 'rubygems'
 
 module PlcUtil
 	# Reads a Siemens Step 7 AWL file and creates single tags with addresses and comment
@@ -14,6 +13,7 @@ module PlcUtil
 			@symlist = {}
 			
 			if options[:symlist]
+        require 'rubygems'
         require 'dbf' or raise 'Please install gem dbf to read symlist file'
 
 				raise 'Specified symlist file not found' unless File.exists? options[:symlist]
@@ -77,7 +77,6 @@ module PlcUtil
 		end
 		
 		def add_type(type)
-        p type 
 				@types[type.name] = type
 		end
 
@@ -88,10 +87,10 @@ module PlcUtil
 		
 		def parse(file)
 			stack = []
-			in_array_decl = false
+			in_array_decl = false # array decalrations are sometimed split on two separate lines
       in_datablock_decl = false
 			tagname = start = stop = type = comment = nil
-      db_to_fb = {}
+      db_to_fb = {} # a list connecting a DB to the FB where it was used
 			file.each_line do |l|
         l.chomp!
 				if in_array_decl
@@ -101,27 +100,26 @@ module PlcUtil
 					end
 					in_array_decl = false
 				else
-					in_array_decl = false
 					case l
             # TODO should also cater for 'DB  90' type addresses
           when /^TYPE "(.+?)"/ 
-            stack = StructType.new($1), :datatype
+            stack = [StructType.new($1, :datatype)]
             add_type stack.first
           when /^FUNCTION_BLOCK "(.+?)"/
-            stack = StructType.new($1), :functionblock
+            stack = [StructType.new($1, :functionblock)]
             add_type stack.first
           when /^DATA_BLOCK ("(.+?)"|DB\s+(\d+))/
             in_datablock_decl = true
             name = $2 || ('DB' + $3)
-            stack = [StructType.new(name), :datablock]
+            stack = [StructType.new(name, :datablock)]
             @datablocks << Variable.new(name, stack.last)
           when /^VAR_TEMP/
-            s = StructType.new 'VAR_TEMP', :anonymous
+            s = StructType.new('VAR_TEMP', :anonymous)
             stack = [s]
           when /^\s*(\S+) : STRUCT /
             in_datablock_decl = false
-            s = StructType.new 'STRUCT', :anonymous
-            stack.last.add Variable.new $1, s
+            s = StructType.new('STRUCT', :anonymous)
+            stack.last.add Variable.new($1, s)
             stack << stack.last.children.last.type
           when /^BEGIN$/
             in_datablock_decl = false

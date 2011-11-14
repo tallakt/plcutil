@@ -39,12 +39,14 @@ module PlcUtil
     end
 
 		def print_to_file(f)
-			@awl.each_tag do |name, data_block_name, addr, comment, struct_comment, type|
+			@awl.each_tag do |tag| #|name, data_block_name, addr, comment, struct_comment, type|
+        require 'rubygems'
+        require 'pp'
 				f.puts @format % [
-          addr, 
-          fix_name(name), 
-          type.to_s, 
-          [comment, struct_comment].compact! ? '' : (@commentformat % [comment, struct_comment])
+          tag[:addr], 
+          fix_name(tag[:name]), 
+          tag[:type].to_s, 
+          [tag[:comment], tag[:struct_comment]].compact! ? '' : (@commentformat % [tag[:comment], tag[:struct_comment]])
         ]
 			end
 		end
