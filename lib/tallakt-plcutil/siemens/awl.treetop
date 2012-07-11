@@ -1,0 +1,172 @@
+grammar Awl
+  rule toplevel
+    (udt / db / ob)*
+  end
+
+  rule db
+    'DATA_BLOCK ' name eol
+    title
+    'VERSION : ' version eol
+    eol*
+    root_struct_decl
+    'BEGIN' eol
+    assignment*
+    'END_DATA_BLOCK' eol
+    ws_eol
+  end
+
+  rule udt
+    'TYPE ' name eol
+    'VERSION : ' version eol
+    eol*
+    root_struct_decl
+    'END_TYPE' eol
+    ws_eol
+  end
+
+  rule ob
+    'ORGANIZATION_BLOCK ' name eol
+    title
+    'VERSION : ' version eol
+    eol*
+    (!ob_end .)*
+    ob_end eol
+    ws_eol
+  end
+
+  rule name
+    quoted_string / dbname
+  end
+
+  rule quoted_string
+    '"' (!'"' .)* '"'
+  end
+
+  rule single_quoted_string
+    single_quote (!single_quote .)* single_quote
+  end
+
+  rule single_quote
+    "'"
+  end
+
+  rule db_name
+    'DB ' [0-9]+
+  end
+
+  rule version
+    [0-9]+ '.' [0-9]+
+  end
+
+  rule title
+    'TITLE =' (ws quoted_string)? eol
+  end
+
+  rule ob_end
+    'END_ORGANIZATION_BLOCK'
+  end
+
+  rule assignment
+    ws identifier ws ':=' ws value ';' ws eol
+  end
+
+  rule declaration
+    ws 
+    identifier 
+    ' : ' 
+    (array_declaration / nonarray_declaration)
+    eol
+  end
+
+  rule nonarray_declaration
+    data_type 
+    ws?
+    initial_value? ws?
+    ';' 
+    ws? declaration_comment?
+  end
+
+  rule initial_value
+    ':=' ws single_quoted_string
+  end
+
+  rule array_declaration
+    'ARRAY  [' [0-9]+ ' .. ' [0-9]+ ' ] OF ' 
+    (array_comment eol ws)? data_type ws ';' ws
+  end
+
+  rule array_comment
+    line_comment
+  end
+
+  rule declaration_comment
+    line_comment
+  end
+
+  rule data_type
+    non_array_data_type / array_declaration
+  end
+
+  rule non_array_data_type
+    basic_data_type / struct_data_type / udt_data_type
+  end
+
+  rule struct_data_type
+    'STRUCT' ws? eol
+    declaration*
+    ws 'END_STRUCT'
+  end
+
+  rule root_struct_decl
+    ws struct_data_type ws ';' ws? eol
+  end
+
+  rule udt_data_type
+    quoted_string
+  end
+
+  rule identifier
+    non_ws+
+  end
+
+  rule line_comment
+    '//' (!eol .)*
+  end
+
+  rule basic_data_type
+    (
+      'INT' / 
+      'DINT' / 
+      'BOOL' / 
+      'BYTE' / 
+      'WORD' / 
+      'DWORD' / 
+      'TIME_OF_DAY' / 
+      'REAL' / 
+      'TIME' /
+      'S5TIME' /
+      'DATE' /
+      'CHAR'
+    )
+  end
+
+  rule value
+    (single_quoted_string / (!(ws / ';') .)+)
+  end
+
+  rule eol
+    "\r"? "\n"
+  end
+
+  rule ws
+    (' ' / "\t")+
+  end
+
+  rule non_ws
+    (!ws .)
+  end
+
+  rule ws_eol
+    (ws / eol)+
+  end
+end
