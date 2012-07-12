@@ -4,8 +4,8 @@ require 'treetop'
 require File.expand_path('../treetop_nodes', __FILE__)
 require File.expand_path('../awl.treetop', __FILE__)
 
-parser = AwlParser.new
-awl = parser.parse File.read(File.expand_path('../../../../test/input_files/step7_v5.4/00000001.AWL', __FILE__))
+parser = PlcUtil::Awl::AwlGrammarParser.new
+awl = parser.parse File.read(File.expand_path('../../../../../test/input_files/step7_v5.4/00000001.AWL', __FILE__))
 
 
 def printable_string(s)
