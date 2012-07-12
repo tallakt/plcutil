@@ -1,6 +1,10 @@
 grammar Awl
+  rule root
+    toplevel <TopLevelNode>
+  end
+
   rule toplevel
-    (udt / db / ob)*
+    (udt <UdtNode> / db <DbNode> / ob <ObNode>)*
   end
 
   rule db
@@ -35,11 +39,11 @@ grammar Awl
   end
 
   rule name
-    quoted_string / dbname
+    quoted_string <QuotedNameNode> / db_name <DbNameNode>
   end
 
   rule quoted_string
-    '"' (!'"' .)* '"'
+    '"' v:(!'"' .)* '"'
   end
 
   rule single_quoted_string
@@ -51,7 +55,7 @@ grammar Awl
   end
 
   rule db_name
-    'DB ' [0-9]+
+    'DB ' number:([0-9]+)
   end
 
   rule version
@@ -59,7 +63,7 @@ grammar Awl
   end
 
   rule title
-    'TITLE =' (ws quoted_string)? eol
+    'TITLE =' optional_title:(ws title_quoted:(quoted_string))? eol
   end
 
   rule ob_end
@@ -74,16 +78,16 @@ grammar Awl
     ws 
     identifier 
     ' : ' 
-    (array_declaration / nonarray_declaration)
+    d:(array_declaration <ArrayDeclarationNode> / nonarray_declaration <NonArrayDeclarationNode>)
     eol
   end
 
   rule nonarray_declaration
-    data_type 
+    non_array_data_type 
     ws?
     initial_value? ws?
     ';' 
-    ws? declaration_comment?
+    ws? comment:(line_comment?)
   end
 
   rule initial_value
@@ -91,29 +95,21 @@ grammar Awl
   end
 
   rule array_declaration
-    'ARRAY  [' [0-9]+ ' .. ' [0-9]+ ' ] OF ' 
-    (array_comment eol ws)? data_type ws ';' ws
-  end
-
-  rule array_comment
-    line_comment
-  end
-
-  rule declaration_comment
-    line_comment
-  end
-
-  rule data_type
-    non_array_data_type / array_declaration
+    'ARRAY  [' ar_begin:([0-9]+) ' .. ' ar_end:([0-9]+) ' ] OF ' 
+    array_comment:(line_comment eol ws)? non_array_data_type ws ';' ws
   end
 
   rule non_array_data_type
-    basic_data_type / struct_data_type / udt_data_type
+    basic_data_type <BasicDataTypeNode> 
+    / 
+    struct_data_type <StructDataTypeNode> 
+    / 
+    udt_data_type <UdtDataTypeNode>
   end
 
   rule struct_data_type
     'STRUCT' ws? eol
-    declaration*
+    decl:declaration* 
     ws 'END_STRUCT'
   end
 
@@ -130,7 +126,7 @@ grammar Awl
   end
 
   rule line_comment
-    '//' (!eol .)*
+    '//' comment_body:(!eol .)*
   end
 
   rule basic_data_type

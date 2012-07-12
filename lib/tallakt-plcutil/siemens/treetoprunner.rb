@@ -1,13 +1,11 @@
+require 'awesome_print'
+require 'polyglot'
 require 'treetop'
+require File.expand_path('../treetop_nodes', __FILE__)
+require File.expand_path('../awl.treetop', __FILE__)
 
-#p AwlParser.class
-
-
-#require File.expand_path('../awl', __FILE__)
-Treetop.load File.expand_path('../awl.treetop', __FILE__)
 parser = AwlParser.new
 awl = parser.parse File.read(File.expand_path('../../../../test/input_files/step7_v5.4/00000001.AWL', __FILE__))
-#awl = parser.parse ''
 
 
 def printable_string(s)
@@ -15,14 +13,12 @@ def printable_string(s)
 end
 
 if !awl
-  #puts parser.inspect
   puts 'Failure reason:'
   puts '----'
   p parser.failure_reason
   puts '----'
-  #puts printable_string(parser.failure_reason)
   puts "failure_line: #{parser.failure_line}"
   puts "failure_column: #{parser.failure_column}"
 else
-  puts awl.inspect
+  awesome_print awl.visit
 end
