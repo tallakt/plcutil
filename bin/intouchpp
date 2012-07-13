@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-require 'rubygems'
+$:.unshift File.expand_path('../../lib', __FILE__)
 require 'plcutil/wonderware/intouch_pretty_print_runner'
 
 # try: intouchpp --help

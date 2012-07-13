@@ -1,4 +1,4 @@
-require 'dbf' or raise 'Please install gem dbf to read symlist file'
+require 'dbf'
 
 module PlcUtil
   module Awl

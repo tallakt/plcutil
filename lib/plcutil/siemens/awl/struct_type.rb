@@ -35,13 +35,13 @@ module PlcUtil
             addr = ct.skip_padding addr
             ct.range.each do |n|
               yield addr, "#{full_name}[#{n}]", ch[:comment], ct.element_type.type_name
-              addr = ct.element_type.end_address start_addr
+              addr = ct.element_type.end_address addr
             end
           when BasicType
             ct = ch[:type]
             addr = ct.skip_padding addr
             yield addr, full_name, ch[:comment], ct.type_name
-            addr = ct.end_address start_addr
+            addr = ct.end_address addr
           end
         end
         addr

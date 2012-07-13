@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-require 'rubygems'
+$:.unshift File.expand_path('../../lib', __FILE__)
 require 'plcutil/schneider/pl7_to_intouch_runner'
 
 # try: pl7tointouch --help

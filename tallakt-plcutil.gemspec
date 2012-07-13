@@ -2,7 +2,7 @@
 lib = File.expand_path('../lib/', __FILE__)
 $:.unshift lib unless $:.include?(lib)
 
-require 'tallakt-plcutil/version'
+require 'plcutil/version'
 
 Gem::Specification.new do |s|
   s.name = %q{tallakt-plcutil}
@@ -20,6 +20,9 @@ Gem::Specification.new do |s|
   s.summary = %q{Ruby PLC file library}
   s.test_files = Dir['test/**/*']
 
-  s.add_dependency 'dbf', [">= 1.6.6"]
+  s.add_dependency 'dbf', ["~> 1.6"]
+  s.add_dependency 'polyglot', ["~> 0.3"]
+  s.add_dependency 'treetop', ["~> 1.4"]
+  s.add_dependency 'clamp', ["~> 0.4"]
 end
 
