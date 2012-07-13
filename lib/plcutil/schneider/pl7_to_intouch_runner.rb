@@ -46,10 +46,15 @@ module PlcUtil
 
     def read_pl7_file(io)
       io.each_line do |l|
-        mres = l.match(/^%M(W)?(\d+)(:X(\d+))?\t(\S+)\t(\S+)(\t\"?([^\t"]*))?/)
+        mres = l.match(/^%M(W|F)?(\d+)(:X(\d+))?\t(\S+)\t(\S+)(\t\"?([^\t"]*))?/)
         if mres
           item = OpenStruct.new
-          item.is_word = mres[1]
+          case mres[1]
+          when 'W'
+            item.is_word = true
+          when 'F'
+            item.is_float = true
+          end
           item.index = mres[2].to_i
           item.bit_index = mres[4] && mres[4].to_i
           item.tagname = mres[5]
@@ -82,6 +87,10 @@ module PlcUtil
         elsif item.is_word
           @intouchfile.new_io_int(tag, data) do |io|
             io.item_name = '%d S' % (item.index + 400001)
+          end
+        elsif item.is_float
+          @intouchfile.new_io_real(tag, data) do |io|
+            io.item_name = '%d F' % (item.index + 400001)
           end
         else
           @intouchfile.new_io_disc(tag, data) do |io|
