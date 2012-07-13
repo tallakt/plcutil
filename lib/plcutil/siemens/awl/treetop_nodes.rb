@@ -87,7 +87,6 @@ module PlcUtil
 
       module UdtDataTypeNode
         def visit(declaration)
-          puts inspect
           declaration[:data_type] = v.text_value
         end
       end

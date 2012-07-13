@@ -6,6 +6,7 @@ require 'plcutil/siemens/awl/basic_type'
 require 'plcutil/siemens/awl/struct_type'
 require 'plcutil/siemens/awl/array_type'
 require 'plcutil/siemens/awl/treetop_nodes'
+require 'plcutil/siemens/awl/db_address'
 require 'plcutil/siemens/awl/awl.treetop'
 
 
@@ -18,7 +19,7 @@ module PlcUtil
         @symlist = (options[:symlist] && SymlistFile.new(options[:symlist])) || {}
 
         # parse file
-        parser = PlcUtil::Awl::AwlGrammar.new
+        parser = PlcUtil::Awl::AwlGrammarParser.new
         awl_nodes = parser.parse File.read(filename)
         @awl = awl_nodes && awl_nodes.visit
         if !@awl
@@ -28,9 +29,6 @@ module PlcUtil
             "Details:",
             parser.failure_reason.inspect,
           ].join("\n")
-        else
-          require 'awesome_print'
-          ap @awl
         end
       end
 
@@ -38,7 +36,7 @@ module PlcUtil
         (options[:blocks] && options[:blocks][tag]) || (@symlist && @symlist[tag])
       end
       
-      def each_exploded(options = {})
+      def each_exploded(options = {}, &block)
         @awl[:dbs].each do |raw|
           db = create_struct raw
           name = if options[:no_block] 
@@ -48,7 +46,7 @@ module PlcUtil
                  end
 
           a = DbAddress.new 0, db_address(raw[:id])
-          db.each_exploded(a, name).each do |addr, name, comment, type_name|
+          db.each_exploded(a, name) do |addr, name, comment, type_name|
             yield addr, name, comment, type_name
           end
         end
@@ -70,11 +68,11 @@ module PlcUtil
 
       def create_struct(raw)
         StructType.new.tap do |s|
-          raw.entries.each do |e|
+          raw[:entries].each do |e|
             base_type = case e[:data_type]
               when Hash
                 # anonymous structure inline
-                create_struct(e)
+                create_struct(e[:data_type])
               when String
                 # UDT
                 get_udt e[:data_type]
@@ -82,9 +80,9 @@ module PlcUtil
                   BasicType::create e[:data_type]
               end
             if e.key? :array
-              s.add_child e[:id], ArrayType.new(basic_type, e[:array])
+              s.add e[:id], ArrayType.new(base_type, e[:array]), e[:comment]
             else
-              s.add_child e[:id], basic_type
+              s.add e[:id], base_type, e[:comment]
             end
           end
         end

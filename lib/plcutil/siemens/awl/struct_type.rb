@@ -6,8 +6,6 @@ module PlcUtil
 			end
 			
 			def add(name, type, comment)
-				raise 'Added nil child' unless child
-				raise 'Added nil child type' unless type
 				@children << {:name => name, :type => type, :comment => comment}
 			end
 				
@@ -19,28 +17,30 @@ module PlcUtil
         @children.inject(start_addr) {|addr, ch| ch[:type].end_address addr }
       end
 
-			def each_exploded(start_addr, name_prefix)
-				addr = start_addr.skip_padding
+			def each_exploded(start_addr, name_prefix, &block)
+				addr = skip_padding start_addr
         @children.each do |ch|
-          full_name = if name_prefix.empty?
-                        child
+          full_name = if !name_prefix || name_prefix.empty?
+                        ch[:name]
                       else
-                        "#{name_prefix}.#{child}"
+                        "#{name_prefix}.#{ch[:name]}"
                       end
-          case ch
+          case ch[:type]
           when StructType
-            addr = ch.explode addr, full_name
+            addr = ch[:type].each_exploded(addr, full_name) do |a, n, c, t|
+              yield a, n, c, t
+            end
           when ArrayType
             ct = ch[:type]
             addr = ct.skip_padding addr
             ct.range.each do |n|
-              yield addr, "#{full_name}[#{n}]", ch[:comment], ct.type
+              yield addr, "#{full_name}[#{n}]", ch[:comment], ct.element_type.type_name
               addr = ct.element_type.end_address start_addr
             end
           when BasicType
             ct = ch[:type]
             addr = ct.skip_padding addr
-            yield addr, full_name, ch[:comment], ct.type
+            yield addr, full_name, ch[:comment], ct.type_name
             addr = ct.end_address start_addr
           end
         end

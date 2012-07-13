@@ -25,16 +25,24 @@ module PlcUtil
         # 2. 8 bit values aligned at each address, 0.0, 1.0, 2.0, ...
         # 3. Structs are aligned modulo 2
         # 4. Bools are aligned like 8 bit values, consecutive bools occupy a single byte
-        DbAddress.new (@bit_addr / 16 + 1) * 16, data_block_addr
+
+        DbAddress.new(next_n(16), data_block_addr)
       end
 
       def next_byte
-        DbAddress.new (@bit_addr / 8 + 1) * 8, data_block_addr
+        DbAddress.new(next_n(8), data_block_addr)
       end
 
-      def next_bool
-        DbAddress.new @bit_addr + 1, data_block_addr
+
+      def next_n(size)
+        m = @bit_addr % size
+        if m > 0
+          (@bit_addr / size + 1) * size
+        else
+          @bit_addr
+        end
       end
+      private :next_n
 
       def skip(bit_count)
         DbAddress.new @bit_addr + bit_count, data_block_addr

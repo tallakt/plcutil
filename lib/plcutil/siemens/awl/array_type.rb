@@ -1,11 +1,9 @@
 module PlcUtil
   module Awl
 		class ArrayType
-			attr_accessor :range, :type
+			attr_accessor :range, :element_type
 			
 			def initialize(element_type, range)
-				raise 'Added nil array type' unless element_type
-				raise 'Added nil array range' unless range
 				@range, @element_type = range, element_type
 			end
 			

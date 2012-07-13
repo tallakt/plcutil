@@ -19,10 +19,10 @@ module PlcUtil
         :cont_c => 125 * 8
       }
 
-      attr_accessor :bit_size, :type
+      attr_accessor :bit_size, :type_name
       
-      def initialize(bit_size, type)
-        @bit_size, @type = bit_size, type
+      def initialize(bit_size, type_name)
+        @bit_size, @type_name = bit_size, type_name
       end
       
       def skip_padding(addr)
@@ -34,7 +34,6 @@ module PlcUtil
         else
           addr.next_word
         end
-        start_address.next_start(bit_size).skip! bit_size
       end
 
       def end_address(start_addr)
@@ -44,7 +43,7 @@ module PlcUtil
       def BasicType.create(type_key)
         b = TYPES[type_key]
         raise "Could not find type: #{type_key.to_s}" unless b
-        yield BasicType.new type_key, b
+        BasicType.new b, type_key
       end
     end
 
