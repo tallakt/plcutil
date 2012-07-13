@@ -1,4 +1,4 @@
-== 0.2.3 2012-07-13
+== 0.2.4 2012-07-13
 
 * awlpp completely rewritten based on treetop parser
 * restructuring of command line tools

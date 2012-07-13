@@ -2,7 +2,7 @@
 lib = File.expand_path('../lib/', __FILE__)
 $:.unshift lib unless $:.include?(lib)
 
-require 'plcutil/version'
+require 'plcutil'
 
 Gem::Specification.new do |s|
   s.name = %q{tallakt-plcutil}
@@ -14,7 +14,7 @@ Gem::Specification.new do |s|
   #s.executables = ["awlpp", "intouchpp", "pl7tointouch", "s7tointouch"]
   s.executables = ["awlpp", "intouchpp", "pl7tointouch"]
   s.extra_rdoc_files = [ "LICENSE", "README.rdoc" ]
-  s.files = Dir['{lib,bin,test}/**/*'] + ["History.txt", "LICENSE", "README.rdoc", "Rakefile"]
+  s.files = Dir['{lib,bin,test}/**/*'] + ["History.txt", "LICENSE", "README.rdoc"]
   s.homepage = %q{http://github.com/tallakt/plcutil}
   s.rdoc_options = ["--charset=UTF-8"]
   s.require_paths = ["lib"]
