@@ -2,11 +2,11 @@
 
 require 'polyglot'
 require 'treetop'
-require 'tallakt-plcutil/siemens/awl/basic_type'
-require 'tallakt-plcutil/siemens/awl/struct_type'
-require 'tallakt-plcutil/siemens/awl/array_type'
-require 'tallakt-plcutil/siemens/awl/treetop_nodes'
-require 'tallakt-plcutil/siemens/awl/awl.treetop'
+require 'plcutil/siemens/awl/basic_type'
+require 'plcutil/siemens/awl/struct_type'
+require 'plcutil/siemens/awl/array_type'
+require 'plcutil/siemens/awl/treetop_nodes'
+require 'plcutil/siemens/awl/awl.treetop'
 
 
 module PlcUtil

@@ -2,7 +2,7 @@
 #encoding: utf-8
 
 require 'optparse'
-require 'tallakt-plcutil/wonderware/intouchfile'
+require 'plcutil/wonderware/intouchfile'
 require 'ostruct'
 
 module PlcUtil

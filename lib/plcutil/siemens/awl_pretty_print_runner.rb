@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
 require 'clamp'
-require 'tallakt-plcutil/siemens/awl/awlfile'
+require 'plcutil/siemens/awl/awlfile'
 
 module PlcUtil
 	# Command line tool to read and output an awl file
