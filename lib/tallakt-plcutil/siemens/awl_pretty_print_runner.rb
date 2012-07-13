@@ -1,87 +1,47 @@
 #!/usr/bin/ruby
 
-require 'optparse'
+require 'clamp'
 require 'tallakt-plcutil/siemens/awl/awlfile'
 
 module PlcUtil
 	# Command line tool to read and output an awl file
-	class AwlPrettyPrintRunner
-		def initialize(args)
-			@awloptions = {}
-			@format = '%-11s %-40s%-10s%s'
-			@commentformat = '# %s / %s'
-			@output = nil
-			@symlistfile = nil
-      @no_block = false
-
-			option_parser.parse! args
-			if args.size != 1
-				show_help
-				exit
-			end
-			filename, = args
-			@awl = Awl::AwlFile.new filename, @awloptions
-			if @output
-				File.open @output, 'w' do |f|
-					print_to_file f
-				end
-			else
-				print_to_file $stdout
-			end
+	class AwlPrettyPrintRunner < Clamp::Command
+		def initialize
+			opt = {
+        :symlist => symlist,
+        :blocks => Hash[blocks.split(/[,=]/)]
+      }
+			
+      awl_files.each do |filename|
+        process_awl_file Awl::AwlFile.new(filename), opt
+      end
 		end
 		
     def fix_name(name)
-      if @no_block
+      if no_block?
         name.sub /^[^\.]*\./, ''
       else
         name
       end
     end
 
-		def print_to_file(f)
-			@awl.each_tag do |tag| #|name, data_block_name, addr, comment, struct_comment, type|
-        require 'rubygems'
-        require 'pp'
-				f.puts @format % [
-          tag[:addr], 
-          fix_name(tag[:name]), 
-          tag[:type].to_s, 
-          [tag[:comment], tag[:struct_comment]].compact! ? '' : (@commentformat % [tag[:comment], tag[:struct_comment]])
+		def process_awl_file(f)
+			@awl.each_exploded do |addr, name, comment, type_name|
+				f.puts '%-11s %-40s%-10s%s' % [
+          addr.to_s,
+          fix_name(name), 
+          type_name.to_s.upcase,
+          comment
         ]
 			end
 		end
 		
-		def option_parser
-			OptionParser.new do |opts|
-				opts.banner = "Usage: awlpp [options] AWLFILE"
-				opts.on("-c", "--csv", String, "Output as CSV file") do
-					format = '%s;%s;%s;%s' 
-					@commentformat = '%s'
-				end
-				opts.on("-n", "--no-block", String, "Dont use the datablock as part of the tag", "name") do
-					@no_block = true
-				end
-        opts.on("-s", "--symlist FILE", String, "Specify SYMLIST.DBF file from S7 project ") do |symlistfile|
-					@awloptions[:symlist] = symlistfile
-				end
-				opts.on("-b", "--block NAME=ADDR", String, "Define address of datablock without", "reading symlist") do |blockdef|
-					name, addr = blockdef.split(/=/)
-					@awloptions[:blocks] ||= {}
-					@awloptions[:blocks][name] = addr
-				end
-				opts.on("-o", "--output FILE", String, "Output to specified file instead of", "standard output") do |output|
-					@output = output
-				end
-				opts.on_tail("-h", "--help", "Show this message") do
-					puts opts
-					exit
-				end
-			end	
-		end
-		
-		def show_help
-			puts option_parser
-		end
-		
+    option %w(--no-block -n), :flag, "don't use datablock as part of the tagname"
+    option %w(--symlist -s), 'FILE', 'specify SYMLIST.DBF frfom Step 7 project'
+    option %w(--block-name -b), 'NAME=ADDR,NAME=ADDR', 'specify DB adress directly instead of using SYMLIST.DBF' do |s|
+      raise 'Invalid format of block names, example use: A=DB20,B=DB21' unless s.match(/(\w+=\w+,)*(\w+=\w+)/)
+    end
+
+    parameter "AWLFILES ...", 'awl files to read (exported inside Step 7)', :attribute_name => :awl_files
 	end
 end

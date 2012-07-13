@@ -1,296 +1,95 @@
 #!/usr/bin/ruby
 
+require 'polyglot'
+require 'treetop'
+require 'tallakt-plcutil/siemens/awl/basic_type'
+require 'tallakt-plcutil/siemens/awl/struct_type'
+require 'tallakt-plcutil/siemens/awl/array_type'
+require 'tallakt-plcutil/siemens/awl/treetop_nodes'
+require 'tallakt-plcutil/siemens/awl/awl.treetop'
+
 
 module PlcUtil
   module Awl
-    # Reads a Siemens Step 7 AWL file and creates single tags with addresses and comment
     class AwlFile
       attr_reader :symlist
 
       def initialize(filename, options = {})
-        @types = {}
-        init_basic_types
-        @datablocks = []
-        @symlist = {}
-        
-        if options[:symlist]
-          require 'rubygems'
-          require 'dbf' or raise 'Please install gem dbf to read symlist file'
+        @symlist = (options[:symlist] && SymlistFile.new(options[:symlist])) || {}
 
-          raise 'Specified symlist file not found' unless File.exists? options[:symlist]
-          table = DBF::Table.new(options[:symlist])
-          table.each do |rec|
-            next unless rec
-            @symlist[rec.attributes['_skz']] = rec.attributes['_opiec'] # or _ophist or _datatyp
-          end
+        # parse file
+        parser = PlcUtil::Awl::AwlGrammar.new
+        awl_nodes = parser.parse File.read(filename)
+        @awl = awl_nodes && awl_nodes.visit
+        if !@awl
+          raise [
+            "Unable to parse file: #{filename}",
+            "Failure on line #{parser.failure_line} column #{parser.failure.column}",
+            "Details:",
+            parser.failure_reason.inspect,
+          ].join("\n")
+        else
+          require 'awesome_print'
+          ap @awl
         end
+      end
 
-        @symlist.merge!(options[:blocks] || {}) # User may override blocks
-        
-        File.open filename do |f|
-          parse f
+      def lookup_symlist(tag)
+        (options[:blocks] && options[:blocks][tag]) || (@symlist && @symlist[tag])
+      end
+      
+      def each_exploded(options = {})
+        @awl[:dbs].each do |raw|
+          db = create_struct raw
+          name = if options[:no_block] 
+                   ''
+                 else 
+                   raw[:id]
+                 end
+
+          a = DbAddress.new 0, db_address(raw[:id])
+          db.each_exploded(a, name).each do |addr, name, comment, type_name|
+            yield addr, name, comment, type_name
+          end
         end
       end
       
-      def each_tag(options = {})
-        @datablocks.each do |var|
-          name = var.name
-          if options[:no_block]
-            name = nil
-          end
-          var.type.explode(Address.new(0, data_block_address(var.name)), name, options).each do |item|
-            ii = item.clone
-            ii[:type] = item[:type].downcase.to_sym
-            yield ii
-          end
-        end
-      end
-      
-      private
-      
-      def data_block_address(name)
+      def db_address(name)
         if @symlist.key? name
           @symlist[name].gsub /\s+/, ''
-        else
-          nil
         end
       end
+      private :db_address
       
-      def init_basic_types
-        types = {
-          'BOOL' => 1,
-          'BYTE' => 8,
-          'CHAR' => 8,
-          'DATE' => 2 * 8, 
-          'DINT' => 4 * 8,
-          'DWORD' => 4 * 8,
-          'INT' => 2 * 8,
-          'REAL' => 4 * 8,
-          'S5TIME' => 2 * 8,
-          'TIME' => 4 * 8,
-          'TIME_OF_DAY' => 4 * 8,
-          'WORD' => 2 * 8,
-          'DATE_AND_TIME' => 4 * 8, # ??? only used in VAR_TEMP
-          'TIMER' => 1, # Only in FC calls
-          'CONT_C' => 125 * 8, 
-        }
-        types.each {|name, size| add_type BasicType.new(name, size) }
+      def get_udt(name)
+        udt = @awl[:udts].find {|u| u[:name] == name }
+        raise "Could not find UDT with name: #{name}" unless udt
+        create_struct udt
       end
-      
-      def add_type(type)
-          @types[type.name] = type
-      end
+      private :get_udt
 
-      def lookup_type(type)
-        raise "Could not find type '#{type}'" unless @types.key? type
-        @types[type]
-      end
-      
-      def parse(file)
-        stack = []
-        in_array_decl = false # array decalrations are sometimed split on two separate lines
-        in_datablock_decl = false
-        tagname = start = stop = type = comment = nil
-        db_to_fb = {} # a list connecting a DB to the FB where it was used
-        file.each_line do |l|
-          l.chomp!
-          if in_array_decl
-            if l.match '^\s+\"?([A-Za-z0-9_]+)"?\s?;'
-              type = $1
-              stack.last.add Variable.new(tagname, ArrayType.new(@types[type], start..stop), comment)
-            end
-            in_array_decl = false
-          else
-            case l
-              # TODO should also cater for 'DB  90' type addresses
-            when /^TYPE "(.+?)"/ 
-              stack = [StructType.new($1, :datatype)]
-              add_type stack.first
-            when /^FUNCTION_BLOCK "(.+?)"/
-              stack = [StructType.new($1, :functionblock)]
-              add_type stack.first
-            when /^DATA_BLOCK ("(.+?)"|DB\s+(\d+))/
-              in_datablock_decl = true
-              name = $2 || ('DB' + $3)
-              stack = [StructType.new(name, :datablock)]
-              @datablocks << Variable.new(name, stack.last)
-            when /^VAR_TEMP/
-              s = StructType.new('VAR_TEMP', :anonymous)
-              stack = [s]
-            when /^\s*(\S+) : STRUCT /
-              in_datablock_decl = false
-              s = StructType.new('STRUCT', :anonymous)
-              stack.last.add Variable.new($1, s)
-              stack << stack.last.children.last.type
-            when /^BEGIN$/
-              in_datablock_decl = false
-            when /^\s+BEGIN/
-              stack.pop
-            # New variable in struct or data block
-            when /^\s+([A-Za-z0-9_ ]+) : "?([A-Za-z0-9_ ]+?)"?\s*(:=\s*[^;]+)?;(\s*\/\/(.*))?/
-              if stack.any?
-                tagname, type_name, comment = $1, $2, ($5 || '')
-                stack.last.add Variable.new(tagname, lookup_type(type_name), comment)
+      def create_struct(raw)
+        StructType.new.tap do |s|
+          raw.entries.each do |e|
+            base_type = case e[:data_type]
+              when Hash
+                # anonymous structure inline
+                create_struct(e)
+              when String
+                # UDT
+                get_udt e[:data_type]
+              when Symbol
+                  BasicType::create e[:data_type]
               end
-            when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF "?([A-Za-z0-9_]+)"?\s?;(\s*\/\/(.*))?/
-              tagname, start, stop, type, comment = $1, $2, $3, $4, $6
-              stack.last.add Variable.new(tagname, ArrayType.new(lookup_type(type), start..stop), comment)
-            when /^\s+([A-Za-z0-9_]+) : ARRAY\s*\[(\d+)\D+(\d+) \] OF(\s?\/\/(.*))?$/
-              tagname, start, stop, comment = $1, $2, $3, $4
-              in_array_decl = true
-            when /^"(.*?)"$/
-              # datablock definition is stored in FB definition
-              # remember which FB to use but assign the FB
-              # only after all blocks have been loaded
-              db_to_fb[stack.first.name] = $1 if in_datablock_decl
+            if e.key? :array
+              s.add_child e[:id], ArrayType.new(basic_type, e[:array])
+            else
+              s.add_child e[:id], basic_type
             end
           end
         end
-
-        # Update FB to DB use
-        @datablocks.each do |db|
-          if db_to_fb.key? db.name
-            fb = lookup_type db_to_fb[db.name]
-            fb.children.each {|child| db.type.add child } if fb.respond_to? :children
-          end
-        end
       end
-      
-      def defined_type(type)
-        @types.key?(type.name)
-      end
-      
-      
-      class BasicType
-        attr_accessor :bit_size, :name
-        
-        def initialize(name, bit_size)
-          @bit_size, @name = bit_size, name
-        end
-        
-			def explode(start_addr, name, comment, struct_comment, options = {})
-        actual_start = start_addr.next_start bit_size
-        [{:addr => actual_start, :name => name, 
-          :struct_comment => struct_comment, :comment => comment, :type => @name}]
-			end
-			
-			def end_address(start_address)
-				start_address.next_start(bit_size).skip! bit_size
-			end
-		end
-
-
-		
-		class StructType
-			attr_accessor :name, :children, :type
-			
-			def initialize(name = 'STRUCT', type = :anonymous)
-				@name = name
-				@children = []
-        @type = type
-			end
-			
-			def add(child)
-				raise 'Added nil child' unless child
-				raise 'Added nil child type' unless child.type
-				@children << child
-			end
-				
-			def end_address(start_address) 
-				addr = start_address.next_start
-				@children.each do |child|
-					addr = child.type.end_address addr
-				end
-        addr.next_start!
-			end
-			
-			def explode(start_addr, name, comment = nil, struct_comment = nil, options = {})
-				addr = start_addr.next_start
-				exploded = []
-				@children.each do |child|
-
-					exploded += child.type.explode(addr, [name, child.name].compact.join('.'), child.comment, 
-                                         type == :datablock ? child.comment : struct_comment, options)
-					addr = child.type.end_address addr
-				end
-				exploded
-			end
-		end
-		
-		class ArrayType
-			attr_accessor :range, :type
-			
-			def initialize(type, range)
-				raise 'Added nil array type' unless type
-				raise 'Added nil array range' unless range
-				@range, @type = range, type
-			end
-			
-			def name
-				'ARRAY'
-			end
-
-			def end_address(start_address) 
-				addr = start_address.next_start
-				range.each do
-					addr = type.end_address addr
-				end
-				addr
-			end
-
-			def explode(start_addr, name, comment, struct_comment, options = {})
-				exploded = []
-				addr = start_addr.next_start
-				range.to_a.each_with_index do |v, i|
-					exploded += type.explode(addr, name + '[' + v.to_s + ']', comment, struct_comment, options = {})
-					addr = type.end_address(addr)
-				end
-				exploded
-			end
-		end
-		
-		class Variable
-			attr_accessor :name, :type, :comment
-
-			def initialize(name, type, comment = nil)
-				@name, @type, @comment= name, type, comment
-			end
-		end
-		
-		class Address
-			attr_accessor :bit_addr, :data_block_addr
-			
-			def initialize(bit_addr, data_block_addr = nil)
-				@bit_addr, @data_block_addr = bit_addr, data_block_addr
-			end
-			
-			def to_s
-				(data_block_addr || 'DB???') + ',' + byte.to_s + '.' + bit.to_s
-			end
-
-      def bit
-        @bit_addr % 8
-      end
-
-      def byte
-        @bit_addr / 8
-      end
-
-      def next_start!(bit_size = 2 * 8)
-        bs = [bit_size, 2 * 8].min  # bools use bits, chars/bytes one byte others two byte rounding of start address
-        rest = @bit_addr % bs
-        @bit_addr += (bs - rest) if rest > 0
-        self
-      end
-
-      def next_start(bit_size = 2 * 8)
-        self.clone.next_start! bit_size
-      end
-
-      def skip!(bit_count)
-        @bit_addr += bit_count
-        self
-      end
+      private :create_struct
 		end
 	end
 end
