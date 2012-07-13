@@ -8,7 +8,8 @@ A set of command line utilities and helper classes to convert between IO list fi
 
 Currently Siemens, Schneider and Wonderware are supported, Schneider and Wonderware IAS support planned in the near future.
 
-This is still a quite rough version - pre alpha!!
+The utilities in this gem are somewhat rough quality, no guarantees are given 
+wrt correct operation. Even so, I hope they might be useful.
 
 == FEATURES/PROBLEMS:
 

@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
 require 'optparse'
-require 'plcutil/siemens/awlfile'
+require 'plcutil/siemens/awl/awl_file'
 require 'plcutil/siemens/sdffile'
 require 'plcutil/wonderware/intouchfile'
 

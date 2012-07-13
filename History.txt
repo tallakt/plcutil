@@ -1,3 +1,9 @@
+== 0.2.3 2012-07-13
+
+* awlpp completely rewritten based on treetop parser
+* restructuring of command line tools
+* s7tointouch currently not working at all
+
 == 0.2.2 2011-11-11
 
 * clean up for Ruby 1.9 support

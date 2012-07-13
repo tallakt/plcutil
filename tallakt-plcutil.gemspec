@@ -11,7 +11,8 @@ Gem::Specification.new do |s|
   s.date = %q{2010-10-12}
   s.description = %q{Ruby library for using Siemens, Schneider and Intouch files}
   s.email = %q{tallak@tveide.net}
-  s.executables = ["awlpp", "intouchpp", "pl7tointouch", "s7tointouch"]
+  #s.executables = ["awlpp", "intouchpp", "pl7tointouch", "s7tointouch"]
+  s.executables = ["awlpp", "intouchpp", "pl7tointouch"]
   s.extra_rdoc_files = [ "LICENSE", "README.rdoc" ]
   s.files = Dir['{lib,bin,test}/**/*'] + ["History.txt", "LICENSE", "README.rdoc", "Rakefile"]
   s.homepage = %q{http://github.com/tallakt/plcutil}
