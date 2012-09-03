@@ -12,7 +12,7 @@ Gem::Specification.new do |s|
   s.description = %q{Ruby library for using Siemens, Schneider and Intouch files}
   s.email = %q{tallak@tveide.net}
   #s.executables = ["awlpp", "intouchpp", "pl7tointouch", "s7tointouch"]
-  s.executables = ["awlpp", "intouchpp", "pl7tointouch"]
+  s.executables = %w(awlpp intouchpp pl7tointouch awlls)
   s.extra_rdoc_files = [ "LICENSE", "README.rdoc" ]
   s.files = Dir['{lib,bin,test}/**/*'] + ["History.txt", "LICENSE", "README.rdoc"]
   s.homepage = %q{http://github.com/tallakt/plcutil}
@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
   s.summary = %q{Ruby PLC file library}
   s.test_files = Dir['test/**/*']
 
-  s.add_dependency 'dbf', ["~> 1.6"]
+  s.add_dependency 'dbf', ["~> 2.0"]
   s.add_dependency 'polyglot', ["~> 0.3"]
   s.add_dependency 'treetop', ["~> 1.4"]
   s.add_dependency 'clamp', ["~> 0.4"]

@@ -20,6 +20,10 @@ Print the contents of Siemens Step 7 IO file
 
   awlpp -s SYMLIST.DBF 00000007.AWL
 
+Find file names corersponding to a internal Step 7 source file name
+
+  awlls --folder ../myproject/
+
 Convert a siemens IO list into a Wonderware Intouch (non IAS) DB import file
 
   s7tointouch -s SYMLIST.DBF -a SIEMENSPLC 00000007.AWL
