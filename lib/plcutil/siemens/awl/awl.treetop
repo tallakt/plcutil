@@ -12,6 +12,9 @@ module PlcUtil
       rule db
         'DATA_BLOCK ' name eol
         title
+        author?
+        family?
+        block_name?
         'VERSION : ' version eol
         eol*
         root_struct_decl
@@ -23,6 +26,9 @@ module PlcUtil
 
       rule udt
         'TYPE ' name eol
+        author?
+        family?
+        block_name?
         'VERSION : ' version eol
         eol*
         root_struct_decl
@@ -33,6 +39,9 @@ module PlcUtil
       rule ob
         'ORGANIZATION_BLOCK ' name eol
         title
+        author?
+        family?
+        block_name?
         'VERSION : ' version eol
         eol*
         (!ob_end .)*
@@ -68,6 +77,18 @@ module PlcUtil
         'TITLE =' optional_title:(ws title_quoted:(quoted_string))? eol
       end
 
+      rule author
+        'AUTHOR : ' (!eol .)* eol
+      end
+
+      rule family
+        'FAMILY : ' (!eol .)* eol
+      end
+
+      rule block_name
+        'NAME : ' (!eol .)* eol
+      end
+
       rule ob_end
         'END_ORGANIZATION_BLOCK'
       end
@@ -93,7 +114,7 @@ module PlcUtil
       end
 
       rule initial_value
-        ':=' ws single_quoted_string
+        ':=' ws (single_quoted_string / float)
       end
 
       rule array_declaration
@@ -110,7 +131,7 @@ module PlcUtil
       end
 
       rule struct_data_type
-        'STRUCT' ws? eol
+        'STRUCT' ws? struct_comment:(line_comment?) eol
         decl:declaration* 
         ws 'END_STRUCT'
       end
@@ -150,6 +171,10 @@ module PlcUtil
 
       rule value
         (single_quoted_string / (!(ws / ';') .)+)
+      end
+
+      rule float
+        [0-9]+ "." [0-9]+ "e+" [0-9]+
       end
 
       rule eol

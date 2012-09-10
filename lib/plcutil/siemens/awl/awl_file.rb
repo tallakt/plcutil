@@ -16,7 +16,7 @@ module PlcUtil
       attr_reader :symlist
 
       def initialize(filename, options = {})
-        @symlist = options[:symlist] && SymlistFile.new(options[:symlist])
+        @symlist = options[:symlist] && SymlistFile.new(options[:symlist]) || {}
         # parse file
         parser = PlcUtil::Awl::AwlGrammarParser.new
         awl_nodes = parser.parse File.read(filename)
@@ -24,7 +24,7 @@ module PlcUtil
         if !@awl
           raise [
             "Unable to parse file: #{filename}",
-            "Failure on line #{parser.failure_line} column #{parser.failure.column}",
+            "Failure on line #{parser.failure_line} column #{parser.failure_column}",
             "Details:",
             parser.failure_reason.inspect,
           ].join("\n")
