@@ -12,7 +12,7 @@ Gem::Specification.new do |s|
   s.description = %q{Ruby library for using Siemens, Schneider and Intouch files}
   s.email = %q{tallak@tveide.net}
   #s.executables = ["awlpp", "intouchpp", "pl7tointouch", "s7tointouch"]
-  s.executables = %w(awlpp intouchpp pl7tointouch awllsi symlist)
+  s.executables = %w(awlpp intouchpp pl7tointouch awlls symlist)
   s.extra_rdoc_files = [ "LICENSE", "README.rdoc" ]
   s.files = Dir['{lib,bin,test}/**/*'] + ["History.txt", "LICENSE", "README.rdoc"]
   s.homepage = %q{http://github.com/tallakt/plcutil}
