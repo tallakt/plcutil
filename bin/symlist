@@ -22,7 +22,7 @@ files.each do |uname, dbpath|
   fn = File.join(File.dirname(symlists_file), dbpath, 'SYMLIST.DBF')
   symlist = DBF::Table.new fn
   symlist.each do |rec|
-    tags << Tag.new(rec['_SKZ'], rec['_DATATYP'], rec['_OPIEC'], rec['_COMMENT'])
+    tags << Tag.new(rec['_SKZ'], rec['_DATATYP'], rec['_OPIEC'], rec['_COMMENT']) if rec
   end
 end
 
