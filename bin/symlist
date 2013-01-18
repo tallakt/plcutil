@@ -2,10 +2,6 @@
 
 require 'dbf'
 
-symlists_file = ARGV.shift
-
-raise "Please specify the name of the project's SYMLISTS.DBF file as parameter" unless symlists_file && symlists_file.match(/SYMLISTS[.]DBF/i)
-
 class Tag
   attr_reader :name, :address, :comment, :type
 
@@ -14,23 +10,40 @@ class Tag
   end
 end
 
-symlists = DBF::Table.new symlists_file
-files = symlists.map {|record| [record['_UNAME'], record['_DBPATH']] unless record['_DELETED'] }.compact
 
-tags = []
-files.each do |uname, dbpath|
-  fn = File.join(File.dirname(symlists_file), dbpath, 'SYMLIST.DBF')
-  symlist = DBF::Table.new fn
-  symlist.each do |rec|
-    tags << Tag.new(rec['_SKZ'], rec['_DATATYP'], rec['_OPIEC'], rec['_COMMENT']) if rec
+def print_symlist(symlists_file)
+  symlists = DBF::Table.new symlists_file
+  files = symlists.map {|record| [record['_UNAME'], record['_DBPATH']] unless record['_DELETED'] }.compact
+
+  tags = []
+  files.each do |uname, dbpath|
+    fn = File.join(File.dirname(symlists_file), dbpath, 'SYMLIST.DBF')
+    symlist = DBF::Table.new fn
+    symlist.each do |rec|
+      tags << Tag.new(rec['_SKZ'], rec['_DATATYP'], rec['_OPIEC'], rec['_COMMENT']) if rec
+    end
+  end
+
+  tags.each do |t|
+    typ = if t.type == t.address
+          ''
+        else
+          t.type
+        end
+    puts '%-24s%-12s%-13s%s' % [t.name, typ, t.address, t.comment]
   end
 end
 
-tags.each do |t|
-  typ = if t.type == t.address
-        ''
-      else
-        t.type
-      end
-  puts '%-24s%-12s%-13s%s' % [t.name, typ, t.address, t.comment]
+s7_folder = ARGV.shift || '.'
+symlists_files = Dir::glob(File.join(s7_folder, '**', 'SYMLISTS.DBF'))
+
+if symlists_files.size == 1
+  print_symlist symlists_files.first
+else
+  STDERR.puts "Please specify the Step 7 project folder"
+  if symlists_files.any?
+    STDERR.puts 'Possible options:'
+    symlists_files.each {|f| STDERR.puts "   #{File.dirname(File.dirname f)}" }
+  end
 end
+
