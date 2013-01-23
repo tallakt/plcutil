@@ -133,6 +133,7 @@ module PlcUtil
 
       rule struct_data_type
         'STRUCT' ws? struct_comment:(line_comment?) eol
+        ws_comments*
         decl:declaration* 
         ws? 'END_STRUCT'
       end
@@ -154,56 +155,59 @@ module PlcUtil
       end
 
       rule basic_data_type
-        ( int / dint / bool / byte / word / dword / time_of_day / real / time / s5time / date / char )
+        ( kw_int / kw_dint / kw_bool / kw_byte / kw_word / 
+          kw_dword / kw_time_of_day / kw_real / kw_time / 
+          kw_s5time / kw_date / kw_char )
       end
 
-      rule int
+      rule kw_int
         [Ii] [Nn] [Tt]
       end
 
-      rule dint
+      rule kw_dint
         [Dd] [Ii] [Nn] [Tt]
       end
 
-      rule bool
+      rule kw_bool
         [Bb] [Oo] [Oo] [Ll]
       end
 
-      rule byte
+      rule kw_byte
         [Bb] [Yy] [Tt] [Ee]
       end
 
-      rule word
+      rule kw_word
         [Ww] [Oo] [Rr] [Dd]
       end
 
-      rule dword
+      rule kw_dword
         [Dd] [Ww] [Oo] [Rr] [Dd]
       end
 
-      rule time_of_day
+      rule kw_time_of_day
         [Tt] [Ii] [Mm] [Ee] [_] [Oo] [Ff] [_] [Dd] [Aa] [Yy]
       end
 
-      rule real
+      rule kw_real
         [Rr] [Ee] [Aa] [Ll]
       end
 
-      rule time
+      rule kw_time
         [Tt] [Ii] [Mm] [Ee]
       end
 
-      rule s5time
+      rule kw_s5time
         [Ss] '5' [Tt] [Ii] [Mm] [Ee]
       end
 
-      rule date
+      rule kw_date
         [Dd] [Aa] [Tt] [Ee]
       end
 
-      rule char
+      rule kw_char
         [Cc] [Hh] [Aa] [Rr]
       end
+
 
       rule value
         (single_quoted_string / (!(ws / ';') .)+)
