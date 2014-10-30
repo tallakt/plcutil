@@ -9,7 +9,7 @@ module PlcUtil
         table = DBF::Table.new filename
         table.each do |rec|
           next unless rec
-          @symlist[rec.attributes['_skz']] = rec.attributes['_opiec']
+          @symlist[rec.attributes['_SKZ']] = rec.attributes['_OPIEC']
         end
 			end
 
